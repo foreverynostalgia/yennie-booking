@@ -1,2 +1,2 @@
-import { db,json } from '@/lib/server';
-export async function GET(){try{const result=await db().prepare('SELECT id,title,day,start,end,capacity FROM courses WHERE active=1 ORDER BY day,start').all();return json(result.results)}catch{return json({error:'수업 목록을 불러오지 못했습니다.'},503)}}
+import {db,json} from '@/lib/server';import {parseSchedules} from '@/lib/schedules';
+export async function GET(){try{const r=await db().prepare('SELECT id,title,day,start,end,capacity,schedules FROM courses WHERE active=1 ORDER BY title').all();return json(r.results.map(c=>({...c,schedules:parseSchedules(c.schedules,{day:Number(c.day),start:String(c.start),end:String(c.end)})})))}catch{return json({error:'수업 목록을 불러오지 못했습니다.'},503)}}

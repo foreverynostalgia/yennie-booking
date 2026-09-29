@@ -1,0 +1,3 @@
+export type Slot={day:number;start:string;end:string};
+export function parseSchedules(value:unknown, legacy:Slot):Slot[]{try{const x=typeof value==='string'?JSON.parse(value):value;if(Array.isArray(x)&&x.length)return x as Slot[]}catch{}return [legacy]}
+export function validSlots(value:unknown):value is Slot[]{return Array.isArray(value)&&value.length>=1&&value.length<=30&&value.every(x=>Number.isInteger(x.day)&&x.day>=0&&x.day<=6&&/^([01]\d|2[0-3]):[0-5]\d$/.test(x.start)&&/^([01]\d|2[0-3]):[0-5]\d$/.test(x.end)&&x.start<x.end)&&new Set(value.map(x=>`${x.day}|${x.start}|${x.end}`)).size===value.length}
