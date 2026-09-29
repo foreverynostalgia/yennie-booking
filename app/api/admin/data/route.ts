@@ -1,0 +1,2 @@
+import {NextRequest} from 'next/server';import {admin,db,fail,json} from '@/lib/server';
+export async function GET(req:NextRequest){if(!await admin(req))return fail('관리자 로그인이 필요합니다.',401);try{const [courses,bookings]=await Promise.all([db().prepare('SELECT * FROM courses ORDER BY day,start').all(),db().prepare('SELECT b.*,c.title,c.start,c.end FROM bookings b JOIN courses c ON c.id=b.course_id ORDER BY b.date DESC,b.created_at DESC LIMIT 500').all()]);return json({courses:courses.results,bookings:bookings.results})}catch{return fail('관리 내역을 불러오지 못했습니다.',503)}}

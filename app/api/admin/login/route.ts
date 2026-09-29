@@ -1,0 +1,3 @@
+import { NextRequest } from 'next/server';
+import {adminPassword,fail,json,loginCookie,sameOrigin} from '@/lib/server';
+export async function POST(req:NextRequest){if(!sameOrigin(req))return fail('요청을 확인할 수 없습니다.',403);const configured=adminPassword();if(!configured)return fail('관리자 설정이 완료되지 않았습니다.',503);const {password}=await req.json() as any;if(typeof password!=='string'||password.length!==configured.length)return fail('비밀번호가 올바르지 않습니다.',401);let mismatch=0;for(let i=0;i<configured.length;i++)mismatch|=configured.charCodeAt(i)^password.charCodeAt(i);if(mismatch)return fail('비밀번호가 올바르지 않습니다.',401);const res=json({ok:true});res.cookies.set('admin_session',await loginCookie(),{httpOnly:true,secure:true,sameSite:'strict',path:'/',maxAge:43200});return res}

@@ -1,0 +1,3 @@
+import { NextRequest } from 'next/server';
+import {db,fail,json,phone} from '@/lib/server';
+export async function POST(req:NextRequest){try{const x=await req.json() as any;const name=String(x.name||'').trim(),p=phone(String(x.phone||'')),code=String(x.accessCode||'').trim();if(!name||!p||!/^[a-f0-9]{16}$/.test(code))return fail('이름, 연락처, 조회 코드를 입력해 주세요.');const r=await db().prepare('SELECT b.id,b.course_id,b.date,b.name,b.school,b.grade,b.status,b.access_code,c.title,c.start,c.end FROM bookings b JOIN courses c ON c.id=b.course_id WHERE b.name=? AND b.phone=? AND b.access_code=? ORDER BY b.date DESC').bind(name,p,code).all();return json(r.results)}catch{return fail('예약 내역을 조회하지 못했습니다.',503)}}
