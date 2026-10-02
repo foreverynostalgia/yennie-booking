@@ -24,3 +24,5 @@
 @media(max-width:800px){.admin-shell .advanced-filters{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:680px){.managed-row .booking-management{grid-row:1;grid-column:2}.booking-view-toolbar{gap:8px}.booking-management .cancel-booking-button{font-size:13px}.booking-calendar-head{gap:12px}.filtered-calendar .admin-day{min-height:65px}}
 @media(max-width:380px){.admin-shell .advanced-filters{grid-template-columns:1fr}.view-switch{margin-left:0;width:100%}.view-switch button{flex:1}}
+
+.booking-cancel-dialog{background:#fff!important;color:#172536;border:1px solid #d8e3eb;box-shadow:0 24px 80px #081b3659;opacity:1}.booking-cancel-dialog [data-slot="alert-dialog-description"]{color:#526879;line-height:1.7}.booking-cancel-dialog [data-slot="alert-dialog-cancel"]{background:#fff;border-color:#cbd8e3;color:#24394a}.booking-cancel-dialog button[data-variant="destructive"]{background:#b63844;color:#fff}body:has(.booking-cancel-dialog) [data-slot="alert-dialog-overlay"]{background:rgba(15,30,48,.65)}
