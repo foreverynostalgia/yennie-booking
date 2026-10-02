@@ -3,6 +3,7 @@ import {useEffect,useMemo,useState} from 'react';
 import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
 import {NativeSelect} from '@/components/ui/native-select';
+import {useLiveRefresh,announceBookingChange} from '@/hooks/use-live-refresh';
 type Slot={day:number;start:string;end:string};
 type Course={id:string;title:string;capacity:number;schedules:Slot[]};
 type Occupancy={course_id:string;date:string;start:string;occupied:number};
@@ -21,8 +22,10 @@ export default function Student(){
  const countFor=(id:string,d:string,start:string)=>occupancy.find(x=>x.course_id===id&&x.date===d&&x.start===start)?.occupied||0;
  const slotsFor=(d:string)=>selected?.schedules.filter(x=>x.day===(new Date(`${d}T12:00:00`).getDay()+6)%7&&future(d,x.end)).sort((a,b)=>a.start.localeCompare(b.start))||[];
  const calendar=useMemo(()=>{const first=new Date(month.getFullYear(),month.getMonth(),1),count=new Date(month.getFullYear(),month.getMonth()+1,0).getDate();return [...Array(first.getDay()).fill(null),...Array.from({length:count},(_,i)=>new Date(month.getFullYear(),month.getMonth(),i+1))] as (Date|null)[]},[month]);
- async function run(f:()=>Promise<void>){setBusy(true);setMessage('');try{await f()}catch(e){setMessage(e instanceof Error?e.message:'다시 시도해 주세요.')}finally{setBusy(false)}}
- const lookup=()=>run(async()=>{const x:any=await api('/api/lookup',{name,phone,accessCode:code});setRows(x);if(!x.length)setMessage('일치하는 예약이 없습니다. 정보를 확인해 주세요.')});
+ async function run(f:()=>Promise<void>){setBusy(true);setMessage('');try{await f();announceBookingChange()}catch(e){setMessage(e instanceof Error?e.message:'다시 시도해 주세요.')}finally{setBusy(false)}}
+ const [lookupIdentity,setLookupIdentity]=useState<{name:string;phone:string;accessCode:string}|null>(null);
+ useLiveRefresh(async()=>{await refreshCourses();if(tab==='mine'&&lookupIdentity){const x:any=await api('/api/lookup',lookupIdentity);setRows(x)}},!busy);
+ const lookup=()=>run(async()=>{setLookupIdentity({name,phone,accessCode:code});const x:any=await api('/api/lookup',{name,phone,accessCode:code});setRows(x);if(!x.length)setMessage('일치하는 예약이 없습니다. 정보를 확인해 주세요.')});
  return <main className="shell"><header className="top"><div className="logo"><span className="logo-mark">S</span><div><strong>옌쌤 과학</strong><small>수강 예약</small></div></div><a className="quiet-link" href="/admin">관리자 페이지</a></header>
  <section className="intro"><p className="eyebrow">SCIENCE CLASS</p><h1>수업 예약</h1><p>수업과 날짜, 시간을 선택하면 바로 예약이 확정됩니다.</p></section>
  <div className="tabs"><button className={tab==='reserve'?'active':''} onClick={()=>setTab('reserve')}>수업 예약</button><button className={tab==='mine'?'active':''} onClick={()=>setTab('mine')}>내 예약 확인</button></div>
