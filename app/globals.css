@@ -26,3 +26,5 @@
 @media(max-width:380px){.admin-shell .advanced-filters{grid-template-columns:1fr}.view-switch{margin-left:0;width:100%}.view-switch button{flex:1}}
 
 .booking-cancel-dialog{background:#fff!important;color:#172536;border:1px solid #d8e3eb;box-shadow:0 24px 80px #081b3659;opacity:1}.booking-cancel-dialog [data-slot="alert-dialog-description"]{color:#526879;line-height:1.7}.booking-cancel-dialog [data-slot="alert-dialog-cancel"]{background:#fff;border-color:#cbd8e3;color:#24394a}.booking-cancel-dialog button[data-variant="destructive"]{background:#b63844;color:#fff}body:has(.booking-cancel-dialog) [data-slot="alert-dialog-overlay"]{background:rgba(15,30,48,.65)}
+
+.period-helper{font-size:14px;color:#5d7384;line-height:1.6;margin:-7px 0 0}.course-period{font-variant-numeric:tabular-nums}.course-editor input[type=date]{width:100%;min-width:0}

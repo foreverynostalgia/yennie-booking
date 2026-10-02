@@ -22,6 +22,13 @@
       "when": 1790702947964,
       "tag": "0002_needy_arclight",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1790926262476,
+      "tag": "0003_spooky_sue_storm",
+      "breakpoints": true
     }
   ]
 }
