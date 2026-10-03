@@ -30,3 +30,24 @@
 .period-helper{font-size:14px;color:#5d7384;line-height:1.6;margin:-7px 0 0}.course-period{font-variant-numeric:tabular-nums}.course-editor input[type=date]{width:100%;min-width:0}
 
 .student-change-panel{margin-top:24px;padding:24px;border:1px solid #cbdfe9;background:#f7fbfe}.student-change-panel h3{margin:0 0 7px;font-size:20px}.student-change-panel>p{color:#526f82;line-height:1.6;margin:0 0 20px}.change-time-options{margin:18px 0}.student-change-panel .row-actions{margin-top:18px}.change-request-label{margin:12px 0 0!important;padding:10px 12px;background:#fff6e7;color:#74531b!important;line-height:1.5}.requested-slot{color:#9b581e!important;margin-top:6px}.booking-status.change_pending{background:#fff2dd;color:#895820}@media(max-width:680px){.student-change-panel{padding:17px}.student-change-panel .row-actions{width:100%}}
+
+.admin-course-layout .admin-panel,.course-editor,.course-editor .fields,.course-editor .slot-editor{min-width:0}
+.course-editor .course-date-pair{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.course-editor .date-field{min-width:0}
+.course-editor .date-control{position:relative;display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;height:46px;padding:0 13px;border:1px solid #cbdde8;border-radius:7px;background:#fff;color:#245f82;font-size:15px;font-weight:600;overflow:hidden}
+.course-editor .date-control .placeholder{color:#667e8d;font-weight:500}
+.course-editor .date-control svg{flex:none}
+.course-editor .date-control input[type=date]{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;z-index:1}
+.course-editor .date-control:focus-within{outline:2px solid #438fc4;outline-offset:2px}
+.course-editor .slot-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;min-width:0;padding:16px}
+.course-editor .slot-row>label,.course-editor .slot-length,.course-editor .slot-length label{min-width:0}
+.course-editor .slot-row .slot-weekday{grid-column:auto}
+.course-editor .slot-row select{width:100%;min-width:0;max-width:100%;font-size:15px}
+.course-editor .slot-length{grid-column:1/-1;display:grid;gap:8px}
+.course-editor .slot-length>span{font-size:14px;font-weight:700}
+.course-editor .duration-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;min-width:0}
+.course-editor .duration-fields label{display:grid;gap:6px;color:#526879;font-size:13px;font-weight:600}
+.course-editor .slot-bottom{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.course-editor .slot-bottom small{color:#5d7384;font-size:14px;font-variant-numeric:tabular-nums}
+.course-editor .slot-bottom button{min-width:76px}
+@media(max-width:600px){.course-editor .course-date-pair{grid-template-columns:minmax(0,1fr)}.course-editor .slot-row{gap:12px;padding:13px}.course-editor .slot-row .slot-weekday{grid-column:auto}.course-editor .slot-row select{font-size:14px}}
