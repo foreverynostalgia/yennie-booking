@@ -50,6 +50,13 @@
       "when": 1791294150302,
       "tag": "0006_ancient_iron_patriot",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1791296433852,
+      "tag": "0007_tranquil_tana_nile",
+      "breakpoints": true
     }
   ]
 }
