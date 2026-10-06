@@ -1,0 +1,1 @@
+ALTER TABLE `courses` ADD `weekly_limit` integer DEFAULT 0 NOT NULL;

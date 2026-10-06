@@ -43,6 +43,13 @@
       "when": 1791270365189,
       "tag": "0005_odd_drax",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1791294150302,
+      "tag": "0006_ancient_iron_patriot",
+      "breakpoints": true
     }
   ]
 }
