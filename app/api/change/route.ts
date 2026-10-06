@@ -14,8 +14,8 @@ export async function POST(req:NextRequest){
   const weekday=(new Date(date+'T12:00:00+09:00').getUTCDay()+6)%7;
   if(!b.active||!withinCoursePeriod(date,b.start_date,b.end_date)||!future(date,end)||!parseSchedules(b.schedules,{day:b.day,start:b.course_start,end:b.course_end}).some(s=>s.day===weekday&&s.start===start&&s.end===end))return fail('변경 가능한 날짜와 시간이 아닙니다.');
   if(date===b.date&&start===b.start&&end===b.end)return fail('현재 예약과 다른 날짜 또는 시간을 선택해 주세요.');
-  const result=await db().prepare("UPDATE bookings SET status='change_pending',requested_date=?,requested_start=?,requested_end=?,change_requested_at=? WHERE id=? AND status='confirmed'").bind(date,start,end,new Date().toISOString(),id).run();
-  if(!result.meta.changes)return fail('이미 처리 중인 요청입니다.',409);
+  const result=await db().prepare("UPDATE bookings SET status='change_pending',requested_date=?,requested_start=?,requested_end=?,change_requested_at=? WHERE id=? AND status='confirmed' AND NOT EXISTS (SELECT 1 FROM reservation_blocks rb WHERE rb.date=? AND (rb.course_id IS NULL OR rb.course_id=bookings.course_id) AND rb.start<? AND rb.end>?)").bind(date,start,end,new Date().toISOString(),id,date,end,start).run();
+  if(!result.meta.changes)return fail('변경할 시간대가 예약 불가이거나 이미 처리 중인 요청입니다.',409);
   return json({status:'change_pending'});
  }catch{return fail('변경 요청을 저장하지 못했습니다.',503)}
 }
