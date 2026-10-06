@@ -7,9 +7,12 @@ export const metadata: Metadata = {
   other: {
     "codex-preview": "development",
   },
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {capable:true,title:"옌쌤 예약 관리자",statusBarStyle:"default"},
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",
+    apple: "/app-icon-192.png",
   },
 };
 

@@ -1,6 +1,7 @@
 'use client';
 import {useEffect,useState} from 'react';
 import BookingCalendar from './booking-calendar';
+import PushSettings from './push-settings';
 import ReservationBlocks from './reservation-blocks';
 import BookingsManager from './bookings-manager';
 import {useLiveRefresh,announceBookingChange} from '@/hooks/use-live-refresh';
@@ -42,7 +43,7 @@ export default function Admin(){
   async function load(){const d:any=await call('/api/admin/data');setAuthorized(true);setCourses(d.courses);setBookings(d.bookings);setAlimtalkConfigured(!!d.alimtalkConfigured)}
   useEffect(()=>{load().catch(()=>setAuthorized(false))},[]);
   useLiveRefresh(load,authorized&&!busy);
-  useEffect(()=>{if(new URLSearchParams(window.location.search).get('tab')==='calendar')setView('calendar')},[]);
+  useEffect(()=>{const tab=new URLSearchParams(window.location.search).get('tab');if(tab==='calendar'||tab==='bookings'||tab==='requests')setView(tab)},[]);
   async function run(f:()=>Promise<void>){setBusy(true);setMessage('');try{await f();announceBookingChange()}catch(e){setMessage(e instanceof Error?e.message:'처리하지 못했습니다.')}finally{setBusy(false)}}
   function setSlotDuration(index:number,next:number){if(next<15||next>345||minutes(slots[index].start)+next>=1440)return;setSlots(slots.map((slot,i)=>i===index?{...slot,end:clock(minutes(slot.start)+next)}:slot))}
   function reset(){setStartDate('');setEndDate('');setEdit('');setTitle('');setSlots([{day:0,start:'18:00',end:'20:00'}]);setCapacity(10);setWeeklyLimit(0)}
@@ -53,6 +54,7 @@ export default function Admin(){
     <header className="top"><div className="logo"><span className="logo-mark">S</span><div><strong>옌쌤 과학</strong><small>예약 관리자</small></div></div><a className="quiet-link" href="/">학생 페이지</a></header>
     {!authorized?<section className="panel login"><p className="eyebrow">ADMIN</p><h1>관리자 로그인</h1><label>관리자 아이디<Input value={username} onChange={e=>setUsername(e.target.value)} autoComplete="username"/></label><label>관리자 비밀번호<Input type="password" value={password} onChange={e=>setPassword(e.target.value)} autoComplete="current-password" onKeyDown={e=>e.key==='Enter'&&signIn()}/></label><Button className="main-button" disabled={busy} onClick={signIn}>로그인</Button>{message&&<p className="notice error" role="alert">{message}</p>}</section>:<>
       <section className="admin-heading"><div><p className="eyebrow">옌쌤 과학 · 관리자</p><h1>예약 관리</h1><p>예약과 취소 요청을 한곳에서 확인하세요.</p></div><Button variant="outline" onClick={()=>run(async()=>{await call('/api/admin/logout','POST');setAuthorized(false);setPassword('')})}>로그아웃</Button></section>
+      <PushSettings/>
       <div className="admin-overview" aria-label="예약 현황"><div className="overview-card"><span>예약 확정</span><strong>{confirmed}<small>건</small></strong></div><div className="overview-card attention"><span>승인 대기</span><strong>{pending.length}<small>건</small></strong></div><div className="overview-card"><span>등록된 수업</span><strong>{courses.filter(x=>x.active).length}<small>개</small></strong></div></div>
       <nav className="tabs admin-tabs" aria-label="관리 메뉴"><button className={view==='requests'?'active':''} onClick={()=>setView('requests')}>승인 요청 <b>{pending.length}</b></button><button className={view==='bookings'?'active':''} onClick={()=>setView('bookings')}>전체 예약</button><button className={view==='past'?'active':''} onClick={()=>setView('past')}>지난 예약 <b>{bookings.filter(b=>b.status!=='cancelled'&&b.attendance&&b.attendance!=='unmarked').length}</b></button><button className={view==='cancelled'?'active':''} onClick={()=>setView('cancelled')}>취소 완료 <b>{bookings.filter(b=>b.status==='cancelled').length}</b></button><button className={view==='calendar'?'active':''} onClick={()=>setView('calendar')}>예약 캘린더</button><button className={view==='courses'?'active':''} onClick={()=>setView('courses')}>수업 관리</button><button className={view==='blocks'?'active':''} onClick={()=>setView('blocks')}>예약 차단</button></nav>
       {message&&<div className="notice error" role="alert">{message}</div>}
