@@ -43,10 +43,10 @@ export async function makePushRequest(device:PushDevice,message:object){
  return {endpoint:device.endpoint,init:{method:'POST',headers:{Authorization:`vapid t=${jwt}, k=${pushPublicKey()}`,'Content-Encoding':'aes128gcm','Content-Type':'application/octet-stream',TTL:'86400'},body:join(header,serverKey,cipher)} as RequestInit};
 }
 
-export async function notifyAdminPush(kind:'reservation'|'cancellation',booking:{name:string;title:string;date:string;start:string}){
+export async function notifyAdminPush(kind:'reservation'|'cancellation',booking:{name:string;title:string;date:string;start:string;end:string}){
  if(!pushReady())return;
  const devices=await db().prepare('SELECT endpoint,p256dh,auth FROM admin_push_subscriptions LIMIT 20').all<PushDevice>();
- const message={title:kind==='reservation'?'새 수업 예약':'예약 취소 요청',body:`${booking.name} · ${booking.title} · ${booking.date} ${booking.start}`,url:'/admin?tab='+ (kind==='reservation'?'bookings':'requests'),tag:crypto.randomUUID()};
+ const message={title:kind==='reservation'?'새 수업 예약':'예약 취소 요청',body:`${booking.name} · ${booking.title} · ${booking.date} ${booking.start}–${booking.end}`,url:'/admin?tab='+ (kind==='reservation'?'bookings':'requests'),tag:crypto.randomUUID()};
  const results=await Promise.allSettled(devices.results.map(async device=>{
   const {endpoint,init}=await makePushRequest(device,message);
   const response=await fetch(endpoint,init);
