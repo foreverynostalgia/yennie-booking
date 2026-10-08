@@ -53,3 +53,5 @@
 @media(max-width:600px){.course-editor .course-date-pair{grid-template-columns:minmax(0,1fr)}.course-editor .slot-row{gap:12px;padding:13px}.course-editor .slot-row .slot-weekday{grid-column:auto}.course-editor .slot-row select{font-size:14px}}
 
 .block-all-day{display:flex!important;align-items:center;gap:10px}.block-all-day input{width:18px;height:18px;accent-color:#55aee4}.admin-tabs{overflow-x:auto;flex-wrap:wrap}
+
+.clinic-booking-helper{margin:0 0 14px!important;font-size:14px}
