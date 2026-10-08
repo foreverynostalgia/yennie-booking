@@ -1,0 +1,1 @@
+ALTER TABLE `bookings` ADD `admin_memo` text DEFAULT '' NOT NULL;

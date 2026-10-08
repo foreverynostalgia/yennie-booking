@@ -14,7 +14,7 @@ import {CalendarDays} from 'lucide-react';
 
 type Slot={day:number;start:string;end:string};
 type Course={id:string;title:string;day:number;start:string;end:string;schedules:string;capacity:number;weekly_limit:number;active:number;start_date:string|null;end_date:string|null};
-type Booking={id:string;course_id:string;date:string;name:string;school:string;grade:string;phone:string;attendance:string;status:string;title:string;start:string;end:string;notification_status:string;notification_error:string|null;notification_message_id:string|null;requested_date:string|null;requested_start:string|null;requested_end:string|null};
+type Booking={admin_memo?:string;id:string;course_id:string;date:string;name:string;school:string;grade:string;phone:string;attendance:string;status:string;title:string;start:string;end:string;notification_status:string;notification_error:string|null;notification_message_id:string|null;requested_date:string|null;requested_start:string|null;requested_end:string|null};
 type View='requests'|'bookings'|'calendar'|'courses'|'blocks'|'cancelled'|'past'|'settings';
 const days=['월','화','수','목','금','토','일'];
 const minutes=(x:string)=>Number(x.slice(0,2))*60+Number(x.slice(3));
