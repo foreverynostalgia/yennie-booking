@@ -1,6 +1,7 @@
 import {NextRequest} from 'next/server';
 import {createBooking} from '@/app/api/bookings/route';
 import {db,fail,future,json,phone,protectedMutation} from '@/lib/server';
+import {acceptsGrade} from '@/lib/course-grades';
 import {bookingWeek} from '@/lib/booking-week';
 import {bookingSlots,isClinic,peakOccupancySql} from '@/lib/booking-slots';
 import {parseSchedules} from '@/lib/schedules';
@@ -22,6 +23,7 @@ export async function PATCH(req:NextRequest){
   const changed=old.course_id!==courseId||old.date!==date||old.start!==start||old.end!==end;
   const c=await db().prepare('SELECT * FROM courses WHERE id=?').bind(courseId).first<any>();
   if(!c)return fail('수업을 확인해 주세요.');
+  if((changed||grade!==old.grade)&&!acceptsGrade(c.target_grades,grade))return fail('선택한 학년의 대상 수업이 아닙니다.');
   if(changed){
    if(old.attendance!=='unmarked'||!future(old.date,old.end))return fail('출결이 입력되었거나 지난 예약은 학생 정보만 수정할 수 있습니다.');
    const day=(new Date(date+'T12:00:00+09:00').getUTCDay()+6)%7;
@@ -32,8 +34,8 @@ export async function PATCH(req:NextRequest){
    UPDATE bookings SET course_id=n.course_id,date=n.date,time_start=n.start,time_end=n.end,name=n.name,school=n.school,grade=n.grade,phone=n.phone,admin_memo=n.admin_memo
    ${changed?",status='confirmed',requested_date=NULL,requested_start=NULL,requested_end=NULL,change_requested_at=NULL,cancel_requested_at=NULL":''}
    FROM n JOIN courses c ON c.id=n.course_id WHERE bookings.id=n.id
-   AND bookings.status=? AND bookings.attendance=? AND bookings.course_id=? AND bookings.date=? AND bookings.name=? AND bookings.school=? AND bookings.grade=? AND bookings.phone=? AND bookings.time_start IS ? AND bookings.time_end IS ? AND bookings.requested_date IS ? AND bookings.requested_start IS ? AND bookings.requested_end IS ? AND bookings.admin_memo=?
-   ${changed?`AND c.active=1 AND (c.start_date IS NULL OR c.start_date<=n.date) AND (c.end_date IS NULL OR c.end_date>=n.date) AND ${peakOccupancySql('n.course_id','n.date','n.start','n.end','n.id')}<c.capacity AND NOT EXISTS (SELECT 1 FROM reservation_blocks rb WHERE rb.date=n.date AND (rb.course_id IS NULL OR rb.course_id=n.course_id) AND rb.start<n.end AND rb.end>n.start)`:''}
+   AND bookings.status=? AND bookings.attendance=? AND bookings.course_id=? AND bookings.date=? AND bookings.name=? AND bookings.school=? AND bookings.grade=? AND bookings.phone=? AND bookings.time_start IS ? AND bookings.time_end IS ? AND bookings.requested_date IS ? AND bookings.requested_start IS ? AND bookings.requested_end IS ? AND bookings.admin_memo=? ${grade!==old.grade?'AND EXISTS (SELECT 1 FROM json_each(c.target_grades) g WHERE g.value=n.grade)':''}
+   ${changed?`AND c.active=1 AND EXISTS (SELECT 1 FROM json_each(c.target_grades) g WHERE g.value=n.grade) AND (c.start_date IS NULL OR c.start_date<=n.date) AND (c.end_date IS NULL OR c.end_date>=n.date) AND ${peakOccupancySql('n.course_id','n.date','n.start','n.end','n.id')}<c.capacity AND NOT EXISTS (SELECT 1 FROM reservation_blocks rb WHERE rb.date=n.date AND (rb.course_id IS NULL OR rb.course_id=n.course_id) AND rb.start<n.end AND rb.end>n.start)`:''}
    AND NOT EXISTS (SELECT 1 FROM bookings other WHERE other.id<>n.id AND other.course_id=n.course_id AND other.date=n.date AND other.name=n.name AND other.phone=n.phone AND other.status IN ('confirmed','cancel_pending','change_pending') AND COALESCE(other.time_start,c.start)<n.end AND COALESCE(other.time_end,c.end)>n.start)
    AND (c.weekly_limit=0 OR (SELECT COUNT(*) FROM bookings wb WHERE wb.id<>n.id AND wb.course_id=n.course_id AND wb.name=n.name AND wb.phone=n.phone AND wb.date>=n.week_start AND wb.date<n.week_end AND wb.status IN ('confirmed','cancel_pending','change_pending'))<c.weekly_limit)`)
    .bind(id,courseId,date,start,end,name,school,grade,p,week.start,week.end,memo,old.status,old.attendance,old.course_id,old.date,old.name,old.school,old.grade,old.phone,old.time_start,old.time_end,old.requested_date,old.requested_start,old.requested_end,old.admin_memo||'').run();

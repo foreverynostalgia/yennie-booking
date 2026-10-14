@@ -1,0 +1,1 @@
+ALTER TABLE `courses` ADD `target_grades` text DEFAULT '["중1","중2","중3"]' NOT NULL;

@@ -1,5 +1,6 @@
 import {waitUntil} from 'cloudflare:workers';
 import {notifyAdminPush} from '@/lib/admin-push';
+import {acceptsGrade} from '@/lib/course-grades';
 import {bookingWeek} from '@/lib/booking-week';
 import {bookingSlots,isClinic,peakOccupancySql} from '@/lib/booking-slots';
 import {createReservationCode} from '@/lib/reservation-code';
@@ -15,7 +16,8 @@ export async function createBooking(req:NextRequest,adminMemo=''){
   const x=await req.json() as Record<string,unknown>;
   const name=String(x.name||'').trim(),school=String(x.school||'').trim(),grade=String(x.grade||''),p=phone(String(x.phone||'')),date=String(x.date||''),courseId=String(x.courseId||''),start=String(x.start||''),end=String(x.end||'');
   if(name.length<2||name.length>40||!school||school.length>80||!['중1','중2','중3','고1','고2','고3'].includes(grade)||p.length<10||p.length>11||!/^\d{4}-\d{2}-\d{2}$/.test(date))return fail('학생 정보와 날짜를 확인해 주세요.');
-  const c=await db().prepare('SELECT * FROM courses WHERE id=? AND active=1').bind(courseId).first<{id:string;title:string;day:number;start:string;end:string;schedules:string;capacity:number;start_date:string|null;end_date:string|null}>();
+  const c=await db().prepare('SELECT * FROM courses WHERE id=? AND active=1').bind(courseId).first<{id:string;title:string;target_grades:string;day:number;start:string;end:string;schedules:string;capacity:number;start_date:string|null;end_date:string|null}>();
+  if(c&&!acceptsGrade(c.target_grades,grade))return fail('선택한 학년의 대상 수업이 아닙니다.');
   if(!c)return fail('예약 가능한 수업이 아닙니다.');
   if(!withinCoursePeriod(date,c.start_date,c.end_date))return fail('개강일과 종강일 사이의 날짜만 예약할 수 있습니다.');
   const day=(new Date(`${date}T12:00:00+09:00`).getUTCDay()+6)%7;
@@ -27,7 +29,7 @@ export async function createBooking(req:NextRequest,adminMemo=''){
    const result=await db().prepare(`WITH candidate AS (SELECT ? AS id,? AS course_id,? AS date,? AS start,? AS end,? AS name,? AS school,? AS grade,? AS phone,? AS code,? AS created_at,? AS week_start,? AS week_end,? AS admin_memo)
     INSERT INTO bookings(id,course_id,date,time_start,time_end,name,school,grade,phone,access_code,status,created_at,notification_status,admin_memo)
     SELECT n.id,n.course_id,n.date,n.start,n.end,n.name,n.school,n.grade,n.phone,n.code,'confirmed',n.created_at,'pending',n.admin_memo FROM candidate n JOIN courses c ON c.id=n.course_id
-    WHERE c.active=1 AND (c.start_date IS NULL OR c.start_date<=n.date) AND (c.end_date IS NULL OR c.end_date>=n.date)
+    WHERE c.active=1 AND EXISTS (SELECT 1 FROM json_each(c.target_grades) g WHERE g.value=n.grade) AND (c.start_date IS NULL OR c.start_date<=n.date) AND (c.end_date IS NULL OR c.end_date>=n.date)
     AND ${peakOccupancySql('n.course_id','n.date','n.start','n.end')}<c.capacity
     AND NOT EXISTS (SELECT 1 FROM bookings b WHERE b.course_id=n.course_id AND b.date=n.date AND b.name=n.name AND b.phone=n.phone AND b.status IN ('confirmed','cancel_pending','change_pending') AND COALESCE(b.time_start,c.start)<n.end AND COALESCE(b.time_end,c.end)>n.start)
     AND NOT EXISTS (SELECT 1 FROM reservation_blocks rb WHERE rb.date=n.date AND (rb.course_id IS NULL OR rb.course_id=n.course_id) AND rb.start<n.end AND rb.end>n.start)
