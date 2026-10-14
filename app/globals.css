@@ -61,3 +61,75 @@
 .add-reservation-pill{border-radius:999px!important;background:#247ab1!important;color:#fff!important;border:2px solid #247ab1!important;padding:0 22px!important;min-height:46px;font-size:15px!important;font-weight:750!important;box-shadow:0 4px 12px #247ab12b;white-space:nowrap}.add-reservation-pill:hover{background:#1b6594!important;border-color:#1b6594!important}.add-reservation-pill:focus-visible{outline:3px solid #8bc9f0;outline-offset:3px}.add-reservation-pill:disabled{opacity:.5}.admin-booking-editor textarea{width:100%;min-height:108px;padding:12px;border:1px solid #cbdde8;border-radius:8px;background:#fff;color:#203d59;font:inherit;resize:vertical}.admin-booking-editor textarea:focus{outline:2px solid #8bc9f0;outline-offset:2px}.admin-reservation-memo{margin:8px 0;padding:10px 12px;background:#f0f7fc;border-left:3px solid #8bc9f0;border-radius:6px;font-size:14px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere;color:#38556b}.admin-reservation-memo strong{display:block;margin-bottom:4px;font-size:13px}
 
 .course-editor .slot-end{grid-column:1/-1;display:flex;align-items:flex-end;gap:16px;min-width:0}.course-editor .slot-end label{flex:1;min-width:0}.slot-duration-info{flex:1;padding-bottom:13px;color:#397da5;font-size:14px;line-height:1.5;font-weight:700}.course-editor .slot-end label{margin:0}
+
+/* Shared controls and mobile-first page layouts. Desktop expands at 960px. */
+:root{--control-height:48px;--ui-gap:12px;--ui-radius:10px}
+.shell,.panel,.layout>*,.fields,.fields>*,.field-pair>*,.booking-filters>*,.panel-heading>*{min-width:0}
+.shell{padding:0 16px max(36px,env(safe-area-inset-bottom));width:100%}
+.top,.admin-shell .top{min-height:72px;height:auto;padding:12px 0;gap:12px}
+.logo{min-width:0;gap:9px}.logo-mark{flex:none;border-radius:10px}.logo strong{font-size:16px}.logo small{font-size:13px}
+.quiet-link{display:inline-flex;align-items:center;justify-content:center;min-height:44px;max-width:52%;text-align:right;line-height:1.5}
+[data-slot="button"]{min-height:var(--control-height);height:auto;min-width:0;padding:11px 16px;border-radius:var(--ui-radius);font-size:15px;line-height:1.5;white-space:normal;text-align:center;overflow-wrap:anywhere}
+[data-slot="button"]:focus-visible,button:focus-visible,a:focus-visible{outline:2px solid #397da5;outline-offset:3px}
+[data-slot="native-select-wrapper"]{width:100%;min-width:0}
+.fields input,.fields select,.login input,.booking-filters input,.booking-filters select,.admin-shell .booking-filters input,.admin-shell .booking-filters select,.booking-management select,.days-input input{width:100%;min-width:0;max-width:100%;height:var(--control-height);font-size:16px;border-radius:var(--ui-radius)}
+.fields label,.login label,.booking-filters label{min-width:0;gap:8px;font-size:14px;line-height:1.5}
+.fields,.field-pair{gap:var(--ui-gap)}.field-pair{grid-template-columns:repeat(2,minmax(0,1fr))}
+input[type="date"]{min-width:0;max-width:100%}
+.block-all-day input{width:20px;height:20px;flex:none}.block-all-day{min-height:44px}
+.main-button{min-height:48px;margin-top:20px}.add-reservation-pill{min-height:48px}
+.layout,.admin-course-layout,.lookup-fields{grid-template-columns:minmax(0,1fr);gap:16px}
+.panel,.admin-panel{padding:20px 16px;border-radius:12px;margin-bottom:16px}
+.panel h2{line-height:1.4}.intro,.admin-shell .admin-heading{padding:26px 0 20px}
+.admin-heading{align-items:flex-start;gap:12px}.admin-heading>div{min-width:0}.admin-heading>button{flex:none;font-size:14px;min-height:48px}
+.admin-shell .admin-heading>button{font-size:14px;padding:11px 14px}
+.tabs,.admin-tabs{flex-wrap:nowrap;gap:8px;max-width:100%;overflow-x:auto;margin-bottom:18px;scrollbar-width:thin}
+.tabs button,.admin-tabs button{flex:none;min-height:48px;padding:12px 10px;font-size:14px}
+.admin-overview{gap:8px;margin-bottom:18px}.overview-card{display:block;min-height:96px;padding:12px 10px;border-radius:10px}.overview-card>span{display:block;font-size:14px;line-height:1.4;min-height:39px}.overview-card strong{font-size:26px}.overview-card small{font-size:13px}
+.panel-heading{align-items:center;flex-wrap:wrap;gap:12px;padding:0 0 18px}.panel-heading h2{margin:0}.panel-heading>.row-actions{display:flex;width:auto;margin-left:auto;align-items:center;gap:10px}.panel-heading>.row-actions button{flex:none}
+.row-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;width:100%;align-items:stretch}
+.row-actions button{width:100%;flex:none}.row-actions>button:only-child{grid-column:1/-1}
+.course-admin-row{display:flex;flex-direction:column;align-items:stretch;gap:16px;padding:18px 0}.course-admin-row>div{min-width:0}.course-admin-row .row-actions{width:100%;grid-template-columns:repeat(3,minmax(0,1fr))}.course-admin-row .row-actions button{padding:10px 6px;font-size:14px}.course-admin-row p,.course-admin-row strong,.booking-schedule strong{overflow-wrap:anywhere}
+.admin-booking-row,.managed-row{grid-template-columns:minmax(0,1fr);gap:14px;padding:18px 0;align-items:start}
+.admin-booking-row .booking-identity,.admin-booking-row .booking-schedule,.managed-row .booking-management,.admin-booking-row>.row-actions{grid-column:auto;grid-row:auto}
+.booking-management{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;align-items:end;width:100%}
+.booking-management>.booking-status{grid-column:1/-1;justify-self:start}.booking-management label{display:grid;gap:6px;font-size:14px;min-width:0}.booking-management>button{width:100%}.booking-management .cancel-booking-button{font-size:15px}
+.booking-status{grid-column:auto;grid-row:auto;max-width:100%;white-space:normal;line-height:1.4}.booking-schedule button{width:100%;justify-self:stretch}
+.booking{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;align-items:start}.booking>button{width:100%}
+.booking-filters,.admin-shell .booking-filters,.admin-shell .advanced-filters{grid-template-columns:minmax(0,1fr);gap:12px;padding:14px;border-radius:10px}.admin-shell .booking-filters label:last-child{grid-column:auto}
+.booking-view-toolbar{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;padding:16px 0}.booking-view-toolbar>strong{grid-column:1/-1}.booking-view-toolbar>label{grid-column:1/-1;min-width:0}.view-switch{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;width:100%;margin:0;gap:8px}
+.calendar-head,.calendar-nav,.planner-nav{gap:8px;min-width:0}.calendar-head button,.calendar-nav button,.planner-nav button,.mini-head button{width:44px;min-width:44px;height:44px;min-height:44px;flex:none;display:grid;place-items:center;border-radius:10px;padding:0}
+.calendar-nav{display:flex;width:100%;justify-content:space-between;white-space:normal}.calendar-nav strong,.calendar-head strong{font-size:15px;text-align:center;line-height:1.5}
+.booking-calendar-head{display:flex;flex-direction:column;align-items:stretch;gap:16px}
+.date-grid{gap:4px}.date-grid button,.admin-booking-editor .date-grid button{min-height:44px;border-radius:8px;padding:0;font-size:15px}.date-grid .weekday{font-size:13px}
+.time-options{grid-template-columns:minmax(0,1fr)}.time-options button{min-height:64px;border-radius:10px;padding:12px;font-size:16px}.time-options small{font-size:14px;line-height:1.5}
+.course-tile{border-radius:10px;padding:16px;overflow-wrap:anywhere}.course-tile.selected{padding:15px}.course-tile small{font-size:14px;line-height:1.5}
+.admin-calendar-grid{gap:3px}.admin-day,.calendar-blank,.filtered-calendar .admin-day{min-height:72px}.admin-day{padding:5px;border-radius:6px}.admin-day.selected{padding:4px}.day-count{font-size:12px;line-height:1.4;overflow-wrap:anywhere}.day-event,.day-more{display:none}.admin-weekday{padding:8px 0}
+.course-editor .course-date-pair{grid-template-columns:minmax(0,1fr)}.course-editor .date-control{height:48px;font-size:16px;border-radius:10px}
+.course-editor .slot-row{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:14px;border-radius:10px;align-items:start}
+.course-editor .slot-row .slot-weekday{grid-column:1/-1}.course-editor .slot-row label{margin:0}.course-editor .slot-row select{font-size:16px;height:48px}
+.course-editor .slot-end{grid-column:auto;display:grid;gap:6px;align-items:start}.course-editor .slot-end label{margin:0}.slot-duration-info{padding:0;min-width:0;font-size:14px;line-height:1.5;overflow-wrap:anywhere}
+.course-editor .slot-bottom{align-items:center}.course-editor .slot-bottom button{height:48px;min-width:88px}.course-editor .slot-editor>button{width:100%}.form-actions{margin:20px 0 0}
+.student-change-panel{padding:16px;border-radius:10px}.login{margin:28px auto}
+.push-settings .row-actions{grid-template-columns:minmax(0,1fr)}.push-settings .row-actions button{grid-column:auto}
+[data-slot="dialog-content"],[data-slot="alert-dialog-content"],.admin-booking-editor{max-width:calc(100vw - 24px)!important;width:620px;max-height:calc(100dvh - 32px);overflow-y:auto;background:#fff;padding:20px 16px!important;border-radius:14px}
+[data-slot="dialog-footer"],[data-slot="alert-dialog-footer"]{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;align-items:stretch}.admin-booking-editor [data-slot="dialog-header"]{padding-right:28px;text-align:left}
+[data-slot="dialog-close"]{min-width:44px;min-height:44px;top:8px;right:8px;display:grid;place-items:center}
+.admin-booking-editor .field-pair{grid-template-columns:minmax(0,1fr)}.admin-booking-editor .fields{gap:16px}.admin-booking-editor textarea{font-size:16px}
+.planner-shell{padding:0 12px 24px}.planner-layout{grid-template-columns:minmax(0,1fr)}.mini-calendar{display:none}.planner-controls{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}.planner-modes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-radius:10px;overflow:hidden}.planner-modes button{min-height:48px;padding:10px 6px;font-size:14px}.planner-nav{width:100%;margin:0;justify-content:space-between}.planner-nav strong{font-size:14px;line-height:1.5;text-align:center;min-width:0}.planner-scroll{height:calc(100dvh - 310px);min-height:350px;max-width:100%;border-radius:10px}.days-input input{width:72px}.planner-popover{padding:24px 16px;max-height:calc(100dvh - 40px);border-radius:14px}.planner-popover h2{padding-right:36px;overflow-wrap:anywhere}.popover-close{width:44px;height:44px;right:8px;top:8px}.planner-students small{font-size:13px}
+@media(min-width:600px){
+ .booking-filters,.admin-shell .booking-filters,.admin-shell .advanced-filters{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .course-editor .course-date-pair,.admin-booking-editor .field-pair{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .time-options{grid-template-columns:repeat(2,minmax(0,1fr))}.push-settings .row-actions{grid-template-columns:repeat(3,minmax(0,1fr))}
+ .admin-day,.calendar-blank,.filtered-calendar .admin-day{min-height:100px}.day-event,.day-more{display:block}
+}
+@media(min-width:960px){
+ .shell{padding:0 24px 64px}.layout{grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:20px}.admin-course-layout{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr)}.panel,.admin-panel{padding:24px}
+ .lookup-fields{grid-template-columns:repeat(3,minmax(0,1fr))}.row-actions{display:flex;width:auto;flex-wrap:wrap}.row-actions button{width:auto}.course-admin-row{flex-direction:row;align-items:center}.course-admin-row .row-actions{display:flex;width:auto;flex-wrap:nowrap}.course-admin-row .row-actions button{padding:11px 14px}.booking-management{width:220px}.admin-booking-row,.managed-row{grid-template-columns:minmax(0,.8fr) minmax(0,1.3fr) auto;align-items:center;gap:20px}.booking-schedule button{width:auto;justify-self:start}
+ .booking-filters,.admin-shell .booking-filters,.admin-shell .advanced-filters{grid-template-columns:repeat(4,minmax(0,1fr))}.booking-calendar-head{flex-direction:row;align-items:center}.calendar-nav{width:auto;gap:16px}.admin-day,.calendar-blank,.filtered-calendar .admin-day{min-height:112px}.day-count{font-size:13px}
+ .planner-layout{grid-template-columns:240px minmax(0,1fr)}.mini-calendar{display:block}.mini-grid button{min-height:32px}.planner-controls{display:flex;align-items:center}.planner-nav{width:auto;margin-left:auto}.planner-scroll{height:calc(100dvh - 250px);min-height:450px}
+ [data-slot="dialog-content"],[data-slot="alert-dialog-content"],.admin-booking-editor{max-width:620px!important;padding:24px!important}
+}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+
+.booking-view-toolbar input{height:48px;width:100%;min-width:0;font-size:16px;border-radius:10px}.planner-popover .planner-students article{min-width:0;overflow-wrap:anywhere}.push-settings .helper{margin-bottom:18px}.push-settings .notice{margin-top:16px}.fields small{line-height:1.5}
