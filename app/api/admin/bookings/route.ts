@@ -3,7 +3,7 @@ import {createBooking} from '@/app/api/bookings/route';
 import {db,fail,future,json,phone,protectedMutation} from '@/lib/server';
 import {acceptsGrade} from '@/lib/course-grades';
 import {bookingWeek} from '@/lib/booking-week';
-import {bookingSlots,isClinic,peakOccupancySql} from '@/lib/booking-slots';
+import {bookingSlots,peakOccupancySql} from '@/lib/booking-slots';
 import {parseSchedules} from '@/lib/schedules';
 import {withinCoursePeriod,validDate} from '@/lib/course-period';
 export async function POST(req:NextRequest){
@@ -27,7 +27,7 @@ export async function PATCH(req:NextRequest){
   if(changed){
    if(old.attendance!=='unmarked'||!future(old.date,old.end))return fail('출결이 입력되었거나 지난 예약은 학생 정보만 수정할 수 있습니다.');
    const day=(new Date(date+'T12:00:00+09:00').getUTCDay()+6)%7;
-   if(!c.active||!withinCoursePeriod(date,c.start_date,c.end_date)||!future(date,isClinic(c.title)?start:end)||!bookingSlots(c.title,parseSchedules(c.schedules,{day:c.day,start:c.start,end:c.end})).some(s=>s.day===day&&s.start===start&&s.end===end))return fail('예약 가능한 수업·날짜·시간을 선택해 주세요.');
+   if(!c.active||!withinCoursePeriod(date,c.start_date,c.end_date)||!future(date,start)||!bookingSlots(c.title,parseSchedules(c.schedules,{day:c.day,start:c.start,end:c.end})).some(s=>s.day===day&&s.start===start&&s.end===end))return fail('예약 가능한 수업·날짜·시간을 선택해 주세요.');
   }
   const week=bookingWeek(date);
   const r=await db().prepare(`WITH n AS (SELECT ? AS id,? AS course_id,? AS date,? AS start,? AS end,? AS name,? AS school,? AS grade,? AS phone,? AS week_start,? AS week_end,? AS admin_memo)

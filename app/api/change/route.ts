@@ -3,7 +3,7 @@ import {bookingWeek} from '@/lib/booking-week';
 import {NextRequest} from 'next/server';
 import {db,fail,future,json,phone,sameOrigin} from '@/lib/server';
 import {validDate,withinCoursePeriod} from '@/lib/course-period';
-import {bookingSlots,isClinic} from '@/lib/booking-slots';
+import {bookingSlots} from '@/lib/booking-slots';
 import {parseSchedules} from '@/lib/schedules';
 
 export async function POST(req:NextRequest){
@@ -16,7 +16,7 @@ export async function POST(req:NextRequest){
   if(!acceptsGrade(b.target_grades,b.grade))return fail('현재 학년의 대상 수업이 아닙니다. 관리자에게 문의해 주세요.');
   if(b.status!=='confirmed'||!future(b.date,b.end))return fail('이 예약은 변경 요청할 수 없습니다.',409);
   const weekday=(new Date(date+'T12:00:00+09:00').getUTCDay()+6)%7;
-  if(!b.active||!withinCoursePeriod(date,b.start_date,b.end_date)||!future(date,isClinic(b.title)?start:end)||!bookingSlots(b.title,parseSchedules(b.schedules,{day:b.day,start:b.course_start,end:b.course_end})).some(s=>s.day===weekday&&s.start===start&&s.end===end))return fail('변경 가능한 날짜와 시간이 아닙니다.');
+  if(!b.active||!withinCoursePeriod(date,b.start_date,b.end_date)||!future(date,start)||!bookingSlots(b.title,parseSchedules(b.schedules,{day:b.day,start:b.course_start,end:b.course_end})).some(s=>s.day===weekday&&s.start===start&&s.end===end))return fail('변경 가능한 날짜와 시간이 아닙니다.');
   if(date===b.date&&start===b.start&&end===b.end)return fail('현재 예약과 다른 날짜 또는 시간을 선택해 주세요.');
   const week=bookingWeek(date);
   const result=await db().prepare("UPDATE bookings SET status='change_pending',requested_date=?,requested_start=?,requested_end=?,change_requested_at=? WHERE id=? AND attendance='unmarked' AND status='confirmed' AND NOT EXISTS (SELECT 1 FROM reservation_blocks rb WHERE rb.date=? AND (rb.course_id IS NULL OR rb.course_id=bookings.course_id) AND rb.start<? AND rb.end>?) AND EXISTS (SELECT 1 FROM courses wc WHERE wc.id=bookings.course_id AND EXISTS (SELECT 1 FROM json_each(wc.target_grades) g WHERE g.value=bookings.grade) AND (wc.weekly_limit=0 OR (SELECT COUNT(*) FROM bookings wb WHERE wb.course_id=wc.id AND wb.name=bookings.name AND wb.phone=bookings.phone AND wb.date>=? AND wb.date<? AND wb.id<>bookings.id AND wb.status IN ('confirmed','cancel_pending','change_pending'))<wc.weekly_limit))").bind(date,start,end,new Date().toISOString(),id,date,end,start,week.start,week.end).run();

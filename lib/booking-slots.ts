@@ -3,9 +3,8 @@ export const isClinic=(title:string)=>title.includes('클리닉');
 const minutes=(time:string)=>Number(time.slice(0,2))*60+Number(time.slice(3));
 const clock=(n:number)=>`${String(Math.floor(n/60)).padStart(2,'0')}:${String(n%60).padStart(2,'0')}`;
 export function bookingSlots(title:string,windows:Slot[]):Slot[]{
- if(!isClinic(title))return windows;
  const unique=new Map<string,Slot>();
- for(const window of windows)for(let n=minutes(window.start);n+60<=minutes(window.end);n+=30){const slot={day:window.day,start:clock(n),end:clock(n+60)};unique.set(`${slot.day}|${slot.start}|${slot.end}`,slot)}
+ for(const window of windows)for(let n=minutes(window.start);n+120<=minutes(window.end);n+=30){const slot={day:window.day,start:clock(n),end:clock(n+120)};unique.set(`${slot.day}|${slot.start}|${slot.end}`,slot)}
  return [...unique.values()];
 }
 export type Occupancy={course_id:string;date:string;start:string;end:string;occupied:number};
