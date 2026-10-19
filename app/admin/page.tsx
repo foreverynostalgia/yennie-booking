@@ -3,7 +3,7 @@ import {useEffect,useState} from 'react';
 import BookingCalendar from './booking-calendar';
 import PushSettings from './push-settings';
 import ReservationBlocks from './reservation-blocks';
-import BookingsManager from './bookings-manager';
+import BookingsManager,{type BulkCancelResult} from './bookings-manager';
 import BookingEditor from './booking-editor';
 import {useLiveRefresh,announceBookingChange} from '@/hooks/use-live-refresh';
 import {Button} from '@/components/ui/button';
@@ -56,6 +56,17 @@ export default function Admin(){
   useLiveRefresh(load,authorized&&!busy);
   useEffect(()=>{const tab=new URLSearchParams(window.location.search).get('tab');if(tab==='calendar'||tab==='bookings'||tab==='requests'||tab==='settings')setView(tab)},[]);
   async function run(f:()=>Promise<void>){setBusy(true);setMessage('');try{await f();announceBookingChange()}catch(e){setMessage(e instanceof Error?e.message:'처리하지 못했습니다.')}finally{setBusy(false)}}
+  async function cancelSelectedBookings(ids:string[]):Promise<BulkCancelResult>{
+    setBusy(true);setMessage('');
+    try{
+      const result=await call('/api/admin/bookings/cancel','POST',{ids}) as BulkCancelResult;
+      const cancelled=new Set(result.cancelledIds);
+      setBookings(previous=>previous.map(b=>cancelled.has(b.id)?{...b,status:'cancelled',requested_date:null,requested_start:null,requested_end:null}:b));
+      announceBookingChange();
+      try{await load()}catch{setMessage('취소 처리는 완료되었습니다. 최신 목록을 불러오지 못했으니 새로고침해 주세요.')}
+      return result;
+    }finally{setBusy(false)}
+  }
   function reset(){setTargetGrades([...middleGrades]);setCopiedCourse('');setStartDate('');setEndDate('');setEdit('');setTitle('');setSlots([{day:0,start:'18:00',end:'20:00'}]);setCapacity(10);setWeeklyLimit(0)}
   function copyCourse(c:Course){
     setTargetGrades(parseTargetGrades(c.target_grades));setEdit('');setCopiedCourse(c.id);setTitle(`${c.title} (복사)`);setStartDate(c.start_date||'');setEndDate(c.end_date||'');
@@ -73,7 +84,7 @@ export default function Admin(){
       <nav className="tabs admin-tabs" aria-label="관리 메뉴"><button className={view==='requests'?'active':''} onClick={()=>setView('requests')}>승인 요청 <b>{pending.length}</b></button><button className={view==='bookings'?'active':''} onClick={()=>setView('bookings')}>전체 예약</button><button className={view==='past'?'active':''} onClick={()=>setView('past')}>지난 예약 <b>{bookings.filter(b=>b.status!=='cancelled'&&b.attendance&&b.attendance!=='unmarked').length}</b></button><button className={view==='cancelled'?'active':''} onClick={()=>setView('cancelled')}>취소 완료 <b>{bookings.filter(b=>b.status==='cancelled').length}</b></button><button className={view==='calendar'?'active':''} onClick={()=>setView('calendar')}>예약 캘린더</button><button className={view==='courses'?'active':''} onClick={()=>setView('courses')}>수업 관리</button><button className={view==='blocks'?'active':''} onClick={()=>setView('blocks')}>예약 차단</button><button className={view==='settings'?'active':''} onClick={()=>setView('settings')}>설정</button></nav>
       {message&&<div className="notice error" role="alert">{message}</div>}{bookingNotice&&<div className="notice success" role="status">{bookingNotice}</div>}
       {view==='requests'&&<section className="panel admin-panel"><div className="panel-heading"><div><p className="section-kicker">CANCELLATIONS</p><h2>학생 요청 승인</h2></div><span className="panel-count">{pending.length}건</span></div>{!pending.length?<p className="admin-empty">대기 중인 취소·변경 요청이 없습니다.</p>:<div className="admin-list">{pending.map(b=><article className="admin-booking-row" key={b.id}><BookingIdentity booking={b}/><div className="booking-schedule"><strong>{b.title}</strong><span>현재 예약 시간 · {b.date} {b.start}–{b.end}</span>{b.status==='change_pending'&&<strong className="requested-slot">변경 요청 · {b.requested_date} {b.requested_start}–{b.requested_end}</strong>}</div><div className="row-actions"><Button disabled={busy} onClick={()=>run(async()=>{await call(b.status==='change_pending'?'/api/admin/changes':'/api/admin/cancellations','POST',{id:b.id,decision:'approve'});await load()})}>{b.status==='change_pending'?'변경 승인':'취소 승인'}</Button><Button variant="outline" disabled={busy} onClick={()=>run(async()=>{await call(b.status==='change_pending'?'/api/admin/changes':'/api/admin/cancellations','POST',{id:b.id,decision:'reject'});await load()})}>요청 거절</Button></div></article>)}</div>}</section>}
-      {(view==='bookings'||view==='cancelled'||view==='past')&&<BookingsManager onAdd={()=>setBookingEditor(null)} onEdit={b=>setBookingEditor(b)} key={view} cancelledOnly={view==='cancelled'} pastOnly={view==='past'} onAttendance={(id,attendance)=>run(async()=>{await call('/api/admin/attendance','POST',{id,attendance});await load()})} bookings={bookings.filter(b=>view==='cancelled'?b.status==='cancelled':view==='past'?b.status!=='cancelled'&&!!b.attendance&&b.attendance!=='unmarked':b.status!=='cancelled'&&(!b.attendance||b.attendance==='unmarked'))} configured={alimtalkConfigured} busy={busy} onCancel={async id=>{await call('/api/admin/bookings/cancel','POST',{id});await load();announceBookingChange()}} onRetry={id=>run(async()=>{await call('/api/admin/notifications','POST',{id});await load()})}/>}
+      {(view==='bookings'||view==='cancelled'||view==='past')&&<BookingsManager onBulkCancel={cancelSelectedBookings} onAdd={()=>setBookingEditor(null)} onEdit={b=>setBookingEditor(b)} key={view} cancelledOnly={view==='cancelled'} pastOnly={view==='past'} onAttendance={(id,attendance)=>run(async()=>{await call('/api/admin/attendance','POST',{id,attendance});await load()})} bookings={bookings.filter(b=>view==='cancelled'?b.status==='cancelled':view==='past'?b.status!=='cancelled'&&!!b.attendance&&b.attendance!=='unmarked':b.status!=='cancelled'&&(!b.attendance||b.attendance==='unmarked'))} configured={alimtalkConfigured} busy={busy} onCancel={async id=>{await call('/api/admin/bookings/cancel','POST',{id});await load();announceBookingChange()}} onRetry={id=>run(async()=>{await call('/api/admin/notifications','POST',{id});await load()})}/>}
       {bookingEditor!==undefined&&<BookingEditor booking={bookingEditor} courses={courses} bookings={bookings} onClose={()=>setBookingEditor(undefined)} onSaved={async code=>{await load();announceBookingChange();setBookingNotice(`${bookingEditor?'예약을 수정했습니다.':'예약을 추가했습니다.'} 조회 코드: ${code}`)}}/>}
       {view==='blocks'&&<ReservationBlocks courses={courses}/>}
       {view==='settings'&&<PushSettings/>}
