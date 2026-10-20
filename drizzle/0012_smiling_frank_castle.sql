@@ -1,0 +1,1 @@
+ALTER TABLE `courses` ADD `color` text DEFAULT '' NOT NULL;
