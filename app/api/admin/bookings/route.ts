@@ -1,3 +1,4 @@
+import {queueGoogleCalendarSync} from '@/lib/google-calendar';
 import {NextRequest} from 'next/server';
 import {createBooking} from '@/app/api/bookings/route';
 import {db,fail,future,json,phone,protectedMutation} from '@/lib/server';
@@ -40,6 +41,6 @@ export async function PATCH(req:NextRequest){
    AND (c.weekly_limit=0 OR (SELECT COUNT(*) FROM bookings wb WHERE wb.id<>n.id AND wb.course_id=n.course_id AND wb.name=n.name AND wb.phone=n.phone AND wb.date>=n.week_start AND wb.date<n.week_end AND wb.status IN ('confirmed','cancel_pending','change_pending'))<c.weekly_limit)`)
    .bind(id,courseId,date,start,end,name,school,grade,p,week.start,week.end,memo,old.status,old.attendance,old.course_id,old.date,old.name,old.school,old.grade,old.phone,old.time_start,old.time_end,old.requested_date,old.requested_start,old.requested_end,old.admin_memo||'').run();
   if(!r.meta.changes)return fail('예약이 변경되었거나 해당 시간이 차단·마감되었습니다. 중복 예약과 주간 한도를 확인해 주세요.',409);
-  return json({ok:true,accessCode:old.access_code});
+  await queueGoogleCalendarSync([id]);return json({ok:true,accessCode:old.access_code});
  }catch(e){console.error('관리자 예약 수정 실패',e);return fail('예약을 수정하지 못했습니다. 다시 시도해 주세요.',503)}
 }

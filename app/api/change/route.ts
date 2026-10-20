@@ -1,3 +1,4 @@
+import {queueGoogleCalendarSync} from '@/lib/google-calendar';
 import {acceptsGrade} from '@/lib/course-grades';
 import {bookingWeek} from '@/lib/booking-week';
 import {NextRequest} from 'next/server';
@@ -21,6 +22,6 @@ export async function POST(req:NextRequest){
   const week=bookingWeek(date);
   const result=await db().prepare("UPDATE bookings SET status='change_pending',requested_date=?,requested_start=?,requested_end=?,change_requested_at=? WHERE id=? AND attendance='unmarked' AND status='confirmed' AND NOT EXISTS (SELECT 1 FROM reservation_blocks rb WHERE rb.date=? AND (rb.course_id IS NULL OR rb.course_id=bookings.course_id) AND rb.start<? AND rb.end>?) AND EXISTS (SELECT 1 FROM courses wc WHERE wc.id=bookings.course_id AND EXISTS (SELECT 1 FROM json_each(wc.target_grades) g WHERE g.value=bookings.grade) AND (wc.weekly_limit=0 OR (SELECT COUNT(*) FROM bookings wb WHERE wb.course_id=wc.id AND wb.name=bookings.name AND wb.phone=bookings.phone AND wb.date>=? AND wb.date<? AND wb.id<>bookings.id AND wb.status IN ('confirmed','cancel_pending','change_pending'))<wc.weekly_limit))").bind(date,start,end,new Date().toISOString(),id,date,end,start,week.start,week.end).run();
   if(!result.meta.changes)return fail('변경할 시간대가 예약 불가이거나 주간 예약 한도에 도달했거나 이미 처리 중인 요청입니다.',409);
-  return json({status:'change_pending'});
+  await queueGoogleCalendarSync([id]);return json({status:'change_pending'});
  }catch{return fail('변경 요청을 저장하지 못했습니다.',503)}
 }

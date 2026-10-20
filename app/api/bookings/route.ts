@@ -1,3 +1,4 @@
+import {queueGoogleCalendarSync} from '@/lib/google-calendar';
 import {waitUntil} from 'cloudflare:workers';
 import {notifyAdminPush} from '@/lib/admin-push';
 import {acceptsGrade} from '@/lib/course-grades';
@@ -41,6 +42,7 @@ export async function createBooking(req:NextRequest,adminMemo=''){
    return fail('선택한 시간이 예약 불가로 설정되었거나 정원·학생별 주간 예약 한도에 도달했습니다. 날짜와 중복 예약을 확인해 주세요.',409);
   }
   if(!saved)return fail('예약 번호를 발급하지 못했습니다. 잠시 후 다시 시도해 주세요.',503);
+  await queueGoogleCalendarSync([id]);
   waitUntil(notifyAdminPush('reservation',{name,title:c.title,date,start,end}).catch(e=>console.error('관리자 예약 알림 실패',e)));
   let notificationStatus='unknown';
   try{notificationStatus=await sendReservationAlimtalk(id)}catch{await db().prepare("UPDATE bookings SET notification_status='unknown',notification_error='발송 접수 여부 확인 필요' WHERE id=? AND notification_status IN ('pending','sending')").bind(id).run().catch(()=>{})}
