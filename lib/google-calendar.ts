@@ -1,6 +1,7 @@
 import {env,waitUntil} from 'cloudflare:workers';
 import {db} from '@/lib/server';
 import {attendanceText} from '@/lib/attendance';
+import {getMakeWebhook} from '@/lib/make-calendar';
 
 const timezone='Asia/Seoul';
 type Credentials={client_email:string;private_key:string;private_key_id?:string};
@@ -30,10 +31,17 @@ async function sendCalendarRequest(method:string,url:string,accessToken:string,b
 export async function syncGoogleCalendarBooking(id:string){
  const booking=await db().prepare('SELECT b.id,b.date,b.name,b.school,b.grade,b.status,b.attendance,b.requested_date,b.requested_start,b.requested_end,c.title,COALESCE(b.time_start,c.start) AS start,COALESCE(b.time_end,c.end) AS end FROM bookings b JOIN courses c ON c.id=b.course_id WHERE b.id=?').bind(id).first<CalendarBooking>();
  if(!booking)return;
- if(!googleCalendarConfigured()){
-  await db().prepare("UPDATE bookings SET calendar_sync_status='unconfigured',calendar_sync_error='구글 캘린더 연결 정보가 필요합니다.' WHERE id=?").bind(id).run();return;
- }
  try{
+  const makeWebhook=await getMakeWebhook();
+  if(!makeWebhook&&!googleCalendarConfigured()){
+   await db().prepare("UPDATE bookings SET calendar_sync_status='unconfigured',calendar_sync_error='구글 캘린더 연결 정보가 필요합니다.' WHERE id=?").bind(id).run();return;
+  }
+  if(makeWebhook){
+   const payload={bookingId:booking.id,bookingMarker:`YEBOOKING:${booking.id}`,action:booking.status==='cancelled'?'delete':'upsert',title:booking.title,name:booking.name,school:booking.school,grade:booking.grade,date:booking.date,start:booking.start,end:booking.end,status:booking.status,attendance:attendanceText[booking.attendance]||'미확인',requestedDate:booking.requested_date,requestedStart:booking.requested_start,requestedEnd:booking.requested_end,timeZone:timezone};
+   const response=await fetch(makeWebhook,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+   if(!response.ok)throw new Error(`Make 웹훅 전송 실패 (${response.status})`);
+   await db().prepare("UPDATE bookings SET calendar_sync_status='sent',calendar_synced_at=?,calendar_sync_error=NULL WHERE id=?").bind(new Date().toISOString(),id).run();return;
+  }
   const config=JSON.parse(runtime().GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON!) as Credentials;
   if(!config.client_email||!config.private_key)throw new Error('서비스 계정 키 형식을 확인해 주세요.');
   const accessToken=await token(config),calendarId=encodeURIComponent(runtime().GOOGLE_CALENDAR_ID!),idForEvent=await eventId(id),base=`https://www.googleapis.com/calendar/v3/calendars/${calendarId}/events`;
