@@ -22,7 +22,7 @@ export async function createBooking(req:NextRequest,adminMemo=''){
   if(!withinCoursePeriod(date,c.start_date,c.end_date))return fail('개강일과 종강일 사이의 날짜만 예약할 수 있습니다.');
   const day=(new Date(`${date}T12:00:00+09:00`).getUTCDay()+6)%7;
   const slots=bookingSlots(c.title,parseSchedules(c.schedules,{day:c.day,start:c.start,end:c.end}));
-  if(!slots.some(s=>s.day===day&&s.start===start&&s.end===end)||!future(date,start))return fail('예약 가능한 날짜와 시간이 아닙니다. 수업 시간 범위 안에서 2시간을 선택해 주세요.');
+  if(!slots.some(s=>s.day===day&&s.start===start&&s.end===end)||!future(date,start))return fail('예약 가능한 날짜와 시간이 아닙니다. 수업 시간 범위 안에서 알맞은 시간을 선택해 주세요.');
   const week=bookingWeek(date),id=crypto.randomUUID();let code='',saved=false;
   for(let attempt=0;attempt<30;attempt++){
    code=createReservationCode();
