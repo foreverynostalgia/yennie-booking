@@ -2,6 +2,7 @@ import {env,waitUntil} from 'cloudflare:workers';
 import {db} from '@/lib/server';
 import {attendanceText} from '@/lib/attendance';
 import {getMakeWebhook} from '@/lib/make-calendar';
+import {getScriptConnection} from '@/lib/script-calendar';
 
 const timezone='Asia/Seoul';
 type Credentials={client_email:string;private_key:string;private_key_id?:string};
@@ -32,12 +33,20 @@ export async function syncGoogleCalendarBooking(id:string){
  const booking=await db().prepare('SELECT b.id,b.date,b.name,b.school,b.grade,b.status,b.attendance,b.requested_date,b.requested_start,b.requested_end,c.title,COALESCE(b.time_start,c.start) AS start,COALESCE(b.time_end,c.end) AS end FROM bookings b JOIN courses c ON c.id=b.course_id WHERE b.id=?').bind(id).first<CalendarBooking>();
  if(!booking)return;
  try{
-  const makeWebhook=await getMakeWebhook();
-  if(!makeWebhook&&!googleCalendarConfigured()){
+  const script=await getScriptConnection(),makeWebhook=script?null:await getMakeWebhook();
+  if(!script&&!makeWebhook&&!googleCalendarConfigured()){
    await db().prepare("UPDATE bookings SET calendar_sync_status='unconfigured',calendar_sync_error='구글 캘린더 연결 정보가 필요합니다.' WHERE id=?").bind(id).run();return;
   }
-  if(makeWebhook){
+  if(script||makeWebhook){
    const payload={bookingId:booking.id,bookingMarker:`YEBOOKING:${booking.id}`,action:booking.status==='cancelled'?'delete':'upsert',title:booking.title,name:booking.name,school:booking.school,grade:booking.grade,date:booking.date,start:booking.start,end:booking.end,status:booking.status,attendance:attendanceText[booking.attendance]||'미확인',requestedDate:booking.requested_date,requestedStart:booking.requested_start,requestedEnd:booking.requested_end,timeZone:timezone};
+   if(script){
+    const response=await fetch(script.url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...payload,token:script.secret})});
+    if(!response.ok)throw new Error(`Google Script 연결 실패 (${response.status})`);
+    const result=await response.json() as {ok?:boolean;error?:string};
+    if(!result.ok)throw new Error(`Google Script: ${result.error||'일정 반영을 확인하지 못했습니다.'}`);
+    await db().prepare("UPDATE bookings SET calendar_sync_status='synced',calendar_synced_at=?,calendar_sync_error=NULL WHERE id=?").bind(new Date().toISOString(),id).run();return;
+   }
+   if(!makeWebhook)throw new Error('Make 연결 주소를 확인해 주세요.');
    const response=await fetch(makeWebhook,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
    if(!response.ok)throw new Error(`Make 웹훅 전송 실패 (${response.status})`);
    await db().prepare("UPDATE bookings SET calendar_sync_status='sent',calendar_synced_at=?,calendar_sync_error=NULL WHERE id=?").bind(new Date().toISOString(),id).run();return;
