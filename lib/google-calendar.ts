@@ -42,6 +42,7 @@ export async function syncGoogleCalendarBooking(id:string){
    if(script){
     const response=await fetch(script.url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...payload,token:script.secret})});
     if(!response.ok)throw new Error(`Google Script 연결 실패 (${response.status})`);
+    if(!response.headers.get('content-type')?.includes('json'))throw new Error('Google Script 웹 앱 액세스 권한을 모든 사용자로 설정하고 /exec 주소를 확인해 주세요.');
     const result=await response.json() as {ok?:boolean;error?:string};
     if(!result.ok)throw new Error(`Google Script: ${result.error||'일정 반영을 확인하지 못했습니다.'}`);
     await db().prepare("UPDATE bookings SET calendar_sync_status='synced',calendar_synced_at=?,calendar_sync_error=NULL WHERE id=?").bind(new Date().toISOString(),id).run();return;

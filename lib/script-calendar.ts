@@ -9,7 +9,7 @@ async function read(){const row=await db().prepare('SELECT webhook_encrypted FRO
 async function write(value:ScriptSetting){await db().prepare('INSERT INTO calendar_settings(id,webhook_encrypted,updated_at) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET webhook_encrypted=excluded.webhook_encrypted,updated_at=excluded.updated_at').bind(id,await encryptSetting(JSON.stringify(value)),new Date().toISOString()).run()}
 export async function getScriptConnection(){const data=await read();return data?.url?data:null}
 export async function prepareScript(){let data=await read();if(!data){data={secret:randomSecret(),url:''};await write(data)}return scriptText(data.secret)}
-export async function saveScriptUrl(url:string){if(!validScriptUrl(url))throw new Error('Google Apps Script 배포 URL(/exec)을 입력해 주세요.');const data=await read();if(!data)throw new Error('먼저 스크립트 코드를 준비해 주세요.');await write({...data,url})}
+export async function saveScriptUrl(url:string){if(!validScriptUrl(url))throw new Error('Google Apps Script 배포 URL(/exec)을 입력해 주세요.');const data=await read();if(!data)throw new Error('먼저 스크립트 코드를 준비해 주세요.');await write({...data,url});await db().prepare("UPDATE bookings SET calendar_sync_status='pending',calendar_sync_error=NULL WHERE status!='cancelled' AND date>=date('now','+9 hours')").run()}
 export async function removeScriptConnection(){await db().prepare('DELETE FROM calendar_settings WHERE id=?').bind(id).run()}
 
 export function scriptText(secret:string){return `// 옌쌤 과학 예약 → 내 Google Calendar (이 코드 전체를 붙여넣으세요)
