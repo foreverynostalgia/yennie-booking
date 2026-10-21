@@ -7,3 +7,17 @@ export function courseColor(value: string | null | undefined, id: string): strin
   for (const char of id) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619) >>> 0;
   return courseColors[hash % courseColors.length];
 }
+
+// Google Calendar supports eleven event colors. Keep the ten built-in course
+// swatches distinct; map custom colors to the nearest supported color.
+export function googleEventColor(value: string | null | undefined, id: string): string {
+  const color=courseColor(value,id).toUpperCase();
+  const defaults=['7','4','10','3','6','2','11','9','1','5'];
+  const index=courseColors.findIndex(x=>x.toUpperCase()===color);
+  if(index>=0)return defaults[index];
+  const palette=['#a4bdfc','#7ae7bf','#dbadff','#ff887c','#fbd75b','#ffb878','#46d6db','#e1e1e1','#5484ed','#51b749','#dc2127'];
+  const rgb=(hex:string)=>[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16));
+  const target=rgb(color);let best=0,distance=Infinity;
+  palette.forEach((hex,i)=>{const d=rgb(hex).reduce((sum,n,k)=>sum+(n-target[k])**2,0);if(d<distance){distance=d;best=i}});
+  return String(best+1);
+}

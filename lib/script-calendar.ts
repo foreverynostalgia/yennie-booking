@@ -39,9 +39,10 @@ function doPost(e) {
         const start = new Date(p.date + 'T' + p.start + ':00+09:00');
         const end = new Date(p.date + 'T' + p.end + ':00+09:00');
         if (isNaN(start.getTime()) || isNaN(end.getTime()) || end <= start) throw new Error('예약 날짜·시간 오류');
-        const label = p.status === 'cancel_pending' ? ' · 취소 승인 대기' : p.status === 'change_pending' ? ' · 변경 승인 대기' : '';
-        const title = p.title + ' · ' + p.name + label;
+        const title = p.name;
+        const colors = [CalendarApp.EventColor.PALE_BLUE, CalendarApp.EventColor.PALE_GREEN, CalendarApp.EventColor.MAUVE, CalendarApp.EventColor.PALE_RED, CalendarApp.EventColor.YELLOW, CalendarApp.EventColor.ORANGE, CalendarApp.EventColor.CYAN, CalendarApp.EventColor.GRAY, CalendarApp.EventColor.BLUE, CalendarApp.EventColor.GREEN, CalendarApp.EventColor.RED];
         const description = ['학교: ' + p.school, '학년: ' + p.grade, '출결: ' + p.attendance,
+          p.status === 'cancel_pending' ? '취소 승인 대기' : p.status === 'change_pending' ? '변경 승인 대기' : '',
           p.status === 'change_pending' && p.requestedDate ? '변경 요청: ' + p.requestedDate + ' ' + p.requestedStart + '–' + p.requestedEnd : '',
           p.bookingMarker].filter(Boolean).join('\\n');
         if (event) {
@@ -52,8 +53,10 @@ function doPost(e) {
           event = cal.createEvent(title, start, end, {description: description});
           props.setProperty(key, event.getId());
         }
+        const colorIndex = Number(p.eventColor) - 1;
+        if (Number.isInteger(colorIndex) && colors[colorIndex]) event.setColor(colors[colorIndex]);
       } else throw new Error('지원하지 않는 동작');
-      return ContentService.createTextOutput(JSON.stringify({ok:true, bookingId:p.bookingId})).setMimeType(ContentService.MimeType.JSON);
+      return ContentService.createTextOutput(JSON.stringify({ok:true, version:2, bookingId:p.bookingId})).setMimeType(ContentService.MimeType.JSON);
     } finally { lock.releaseLock(); }
   } catch (err) {
     return ContentService.createTextOutput(JSON.stringify({ok:false,error:String(err.message || err)})).setMimeType(ContentService.MimeType.JSON);

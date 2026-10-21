@@ -14,6 +14,8 @@ export async function POST(req:NextRequest){
  const script=!!await getScriptConnection();
  if(!script&&!await getMakeWebhook()&&!googleCalendarConfigured())return fail('구글 캘린더 연결 정보가 설정되지 않았습니다.',409);
  const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+ const body=await req.json().catch(()=>({})) as {refresh?:boolean};
+ if(body.refresh===true)await db().prepare("UPDATE bookings SET calendar_sync_status='pending',calendar_sync_error=NULL WHERE status!='cancelled' AND date>=?").bind(today).run();
  const result=await db().prepare(script?"SELECT id FROM bookings WHERE (status!='cancelled' AND date>=? AND calendar_sync_status!='synced') OR (status='cancelled' AND calendar_synced_at IS NOT NULL AND calendar_sync_status!='synced') ORDER BY date ASC LIMIT 20":"SELECT id FROM bookings WHERE (status!='cancelled' AND date>=? AND calendar_sync_status NOT IN ('synced','sent')) OR (status='cancelled' AND calendar_synced_at IS NOT NULL AND calendar_sync_status NOT IN ('synced','sent')) ORDER BY date ASC LIMIT 20").bind(today).all<{id:string}>();
  for(const row of result.results)await syncGoogleCalendarBooking(row.id);
  const failures=await db().prepare("SELECT COUNT(*) AS count FROM bookings WHERE id IN (SELECT value FROM json_each(?)) AND calendar_sync_status='failed'").bind(JSON.stringify(result.results.map(x=>x.id))).first<{count:number}>();
