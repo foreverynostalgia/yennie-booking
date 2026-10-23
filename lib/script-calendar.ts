@@ -39,7 +39,7 @@ function doPost(e) {
         const start = new Date(p.date + 'T' + p.start + ':00+09:00');
         const end = new Date(p.date + 'T' + p.end + ':00+09:00');
         if (isNaN(start.getTime()) || isNaN(end.getTime()) || end <= start) throw new Error('예약 날짜·시간 오류');
-        const title = p.name;
+        const title = p.eventTitle || p.name;
         const colors = [CalendarApp.EventColor.PALE_BLUE, CalendarApp.EventColor.PALE_GREEN, CalendarApp.EventColor.MAUVE, CalendarApp.EventColor.PALE_RED, CalendarApp.EventColor.YELLOW, CalendarApp.EventColor.ORANGE, CalendarApp.EventColor.CYAN, CalendarApp.EventColor.GRAY, CalendarApp.EventColor.BLUE, CalendarApp.EventColor.GREEN, CalendarApp.EventColor.RED];
         const description = ['학교: ' + p.school, '학년: ' + p.grade, '출결: ' + p.attendance,
           p.status === 'cancel_pending' ? '취소 승인 대기' : p.status === 'change_pending' ? '변경 승인 대기' : '',

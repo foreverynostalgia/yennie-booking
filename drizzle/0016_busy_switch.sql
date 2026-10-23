@@ -1,0 +1,1 @@
+ALTER TABLE `courses` ADD `calendar_label` text DEFAULT '' NOT NULL;

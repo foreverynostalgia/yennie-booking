@@ -1,3 +1,4 @@
+import {calendarBookingTitle} from '@/lib/calendar-display';
 import {env,waitUntil} from 'cloudflare:workers';
 import {db} from '@/lib/server';
 import {attendanceText} from '@/lib/attendance';
@@ -7,7 +8,7 @@ import {googleEventColor} from '@/lib/course-colors';
 
 const timezone='Asia/Seoul';
 type Credentials={client_email:string;private_key:string;private_key_id?:string};
-type CalendarBooking={id:string;course_id:string;color:string;date:string;name:string;school:string;grade:string;status:string;attendance:string;requested_date:string|null;requested_start:string|null;requested_end:string|null;title:string;start:string;end:string};
+type CalendarBooking={id:string;course_id:string;color:string;calendar_label:string;date:string;name:string;school:string;grade:string;status:string;attendance:string;requested_date:string|null;requested_start:string|null;requested_end:string|null;title:string;start:string;end:string};
 let cachedToken:{value:string;expires:number}|null=null;
 const runtime=()=>env as unknown as Record<string,string|undefined>;
 export const googleCalendarConfigured=()=>!!runtime().GOOGLE_CALENDAR_ID&&!!runtime().GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON;
@@ -31,7 +32,7 @@ async function sendCalendarRequest(method:string,url:string,accessToken:string,b
  return fetch(url,{method,headers:{Authorization:`Bearer ${accessToken}`,...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined});
 }
 export async function syncGoogleCalendarBooking(id:string){
- const booking=await db().prepare('SELECT b.id,b.course_id,c.color,b.date,b.name,b.school,b.grade,b.status,b.attendance,b.requested_date,b.requested_start,b.requested_end,c.title,COALESCE(b.time_start,c.start) AS start,COALESCE(b.time_end,c.end) AS end FROM bookings b JOIN courses c ON c.id=b.course_id WHERE b.id=?').bind(id).first<CalendarBooking>();
+ const booking=await db().prepare('SELECT b.id,b.course_id,c.color,c.calendar_label,b.date,b.name,b.school,b.grade,b.status,b.attendance,b.requested_date,b.requested_start,b.requested_end,c.title,COALESCE(b.time_start,c.start) AS start,COALESCE(b.time_end,c.end) AS end FROM bookings b JOIN courses c ON c.id=b.course_id WHERE b.id=?').bind(id).first<CalendarBooking>();
  if(!booking)return;
  try{
   const script=await getScriptConnection(),makeWebhook=script?null:await getMakeWebhook();
@@ -41,7 +42,7 @@ export async function syncGoogleCalendarBooking(id:string){
   if(script||makeWebhook){
    const payload={bookingId:booking.id,bookingMarker:`YEBOOKING:${booking.id}`,action:booking.status==='cancelled'?'delete':'upsert',eventColor:googleEventColor(booking.color,booking.course_id),title:booking.title,name:booking.name,school:booking.school,grade:booking.grade,date:booking.date,start:booking.start,end:booking.end,status:booking.status,attendance:attendanceText[booking.attendance]||'미확인',requestedDate:booking.requested_date,requestedStart:booking.requested_start,requestedEnd:booking.requested_end,timeZone:timezone};
    if(script){
-    const response=await fetch(script.url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...payload,token:script.secret})});
+    const response=await fetch(script.url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...payload,studentName:booking.name,name:calendarBookingTitle(booking.name,booking.calendar_label),eventTitle:calendarBookingTitle(booking.name,booking.calendar_label),token:script.secret})});
     if(!response.ok)throw new Error(`Google Script 연결 실패 (${response.status})`);
     if(!response.headers.get('content-type')?.includes('json'))throw new Error('Google Script 웹 앱 액세스 권한을 모든 사용자로 설정하고 /exec 주소를 확인해 주세요.');
     const result=await response.json() as {ok?:boolean;version?:number;error?:string};
@@ -63,7 +64,7 @@ export async function syncGoogleCalendarBooking(id:string){
   }else{
    const status=booking.status==='cancel_pending'?' · 취소 승인 대기':booking.status==='change_pending'?' · 변경 승인 대기':'';
    const description=[`학교: ${booking.school}`,`학년: ${booking.grade}`,`출결: ${attendanceText[booking.attendance]||'미확인'}`,booking.status==='change_pending'&&booking.requested_date?`변경 요청: ${booking.requested_date} ${booking.requested_start}–${booking.requested_end}`:'','옌쌤 과학 예약 사이트와 동기화된 일정입니다.'].filter(Boolean).join('\n');
-   const event={id:idForEvent,summary:booking.name,colorId:googleEventColor(booking.color,booking.course_id),description:[status.trim(),description].filter(Boolean).join('\n'),start:{dateTime:`${booking.date}T${booking.start}:00+09:00`,timeZone:timezone},end:{dateTime:`${booking.date}T${booking.end}:00+09:00`,timeZone:timezone},extendedProperties:{private:{siteBookingId:id}}};
+   const event={id:idForEvent,summary:calendarBookingTitle(booking.name,booking.calendar_label),colorId:googleEventColor(booking.color,booking.course_id),description:[status.trim(),description].filter(Boolean).join('\n'),start:{dateTime:`${booking.date}T${booking.start}:00+09:00`,timeZone:timezone},end:{dateTime:`${booking.date}T${booking.end}:00+09:00`,timeZone:timezone},extendedProperties:{private:{siteBookingId:id}}};
    const response=await sendCalendarRequest('POST',base,accessToken,event);
    if(response.status===409){const update=await sendCalendarRequest('PATCH',`${base}/${idForEvent}`,accessToken,event);if(!update.ok)throw new Error(`Google 일정 변경 실패 (${update.status})`)}
    else if(!response.ok)throw new Error(`Google 일정 등록 실패 (${response.status})`);
