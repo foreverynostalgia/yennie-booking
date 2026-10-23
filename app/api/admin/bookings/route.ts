@@ -1,3 +1,4 @@
+import {blockAppliesSql} from '@/lib/reservation-blocks';
 import {queueGoogleCalendarSync} from '@/lib/google-calendar';
 import {NextRequest} from 'next/server';
 import {createBooking} from '@/app/api/bookings/route';
@@ -36,7 +37,7 @@ export async function PATCH(req:NextRequest){
    ${changed?",status='confirmed',requested_date=NULL,requested_start=NULL,requested_end=NULL,change_requested_at=NULL,cancel_requested_at=NULL":''}
    FROM n JOIN courses c ON c.id=n.course_id WHERE bookings.id=n.id
    AND bookings.status=? AND bookings.attendance=? AND bookings.course_id=? AND bookings.date=? AND bookings.name=? AND bookings.school=? AND bookings.grade=? AND bookings.phone=? AND bookings.time_start IS ? AND bookings.time_end IS ? AND bookings.requested_date IS ? AND bookings.requested_start IS ? AND bookings.requested_end IS ? AND bookings.admin_memo=? ${grade!==old.grade?'AND EXISTS (SELECT 1 FROM json_each(c.target_grades) g WHERE g.value=n.grade)':''}
-   ${changed?`AND c.active=1 AND EXISTS (SELECT 1 FROM json_each(c.target_grades) g WHERE g.value=n.grade) AND (c.start_date IS NULL OR c.start_date<=n.date) AND (c.end_date IS NULL OR c.end_date>=n.date) AND ${peakOccupancySql('n.course_id','n.date','n.start','n.end','n.id')}<c.capacity AND NOT EXISTS (SELECT 1 FROM reservation_blocks rb WHERE rb.date=n.date AND rb.start<n.end AND rb.end>n.start)`:''}
+   ${changed?`AND c.active=1 AND EXISTS (SELECT 1 FROM json_each(c.target_grades) g WHERE g.value=n.grade) AND (c.start_date IS NULL OR c.start_date<=n.date) AND (c.end_date IS NULL OR c.end_date>=n.date) AND ${peakOccupancySql('n.course_id','n.date','n.start','n.end','n.id')}<c.capacity AND NOT EXISTS (SELECT 1 FROM reservation_blocks rb WHERE rb.date=n.date AND ${blockAppliesSql('n.course_id')} AND rb.start<n.end AND rb.end>n.start)`:''}
    AND NOT EXISTS (SELECT 1 FROM bookings other WHERE other.id<>n.id AND other.course_id=n.course_id AND other.date=n.date AND other.name=n.name AND other.phone=n.phone AND other.status IN ('confirmed','cancel_pending','change_pending') AND COALESCE(other.time_start,c.start)<n.end AND COALESCE(other.time_end,c.end)>n.start)
    AND (c.weekly_limit=0 OR (SELECT COUNT(*) FROM bookings wb WHERE wb.id<>n.id AND wb.course_id=n.course_id AND wb.name=n.name AND wb.phone=n.phone AND wb.date>=n.week_start AND wb.date<n.week_end AND wb.status IN ('confirmed','cancel_pending','change_pending'))<c.weekly_limit)`)
    .bind(id,courseId,date,start,end,name,school,grade,p,week.start,week.end,memo,old.status,old.attendance,old.course_id,old.date,old.name,old.school,old.grade,old.phone,old.time_start,old.time_end,old.requested_date,old.requested_start,old.requested_end,old.admin_memo||'').run();

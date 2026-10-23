@@ -1,3 +1,4 @@
+import {blockAppliesSql} from '@/lib/reservation-blocks';
 import {queueGoogleCalendarSync} from '@/lib/google-calendar';
 import {waitUntil} from 'cloudflare:workers';
 import {notifyAdminPush} from '@/lib/admin-push';
@@ -33,7 +34,7 @@ export async function createBooking(req:NextRequest,adminMemo=''){
     WHERE c.active=1 AND EXISTS (SELECT 1 FROM json_each(c.target_grades) g WHERE g.value=n.grade) AND (c.start_date IS NULL OR c.start_date<=n.date) AND (c.end_date IS NULL OR c.end_date>=n.date)
     AND ${peakOccupancySql('n.course_id','n.date','n.start','n.end')}<c.capacity
     AND NOT EXISTS (SELECT 1 FROM bookings b WHERE b.course_id=n.course_id AND b.date=n.date AND b.name=n.name AND b.phone=n.phone AND b.status IN ('confirmed','cancel_pending','change_pending') AND COALESCE(b.time_start,c.start)<n.end AND COALESCE(b.time_end,c.end)>n.start)
-    AND NOT EXISTS (SELECT 1 FROM reservation_blocks rb WHERE rb.date=n.date AND rb.start<n.end AND rb.end>n.start)
+    AND NOT EXISTS (SELECT 1 FROM reservation_blocks rb WHERE rb.date=n.date AND ${blockAppliesSql('n.course_id')} AND rb.start<n.end AND rb.end>n.start)
     AND (c.weekly_limit=0 OR (SELECT COUNT(*) FROM bookings wb WHERE wb.course_id=n.course_id AND wb.name=n.name AND wb.phone=n.phone AND wb.date>=n.week_start AND wb.date<n.week_end AND wb.status IN ('confirmed','cancel_pending','change_pending'))<c.weekly_limit)
     AND NOT EXISTS (SELECT 1 FROM bookings WHERE access_code=n.code)`)
     .bind(id,courseId,date,start,end,name,school,grade,p,code,new Date().toISOString(),week.start,week.end,adminMemo).run();
