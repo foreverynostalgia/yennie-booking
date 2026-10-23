@@ -1,5 +1,6 @@
 'use client';
 import {useEffect,useState} from 'react';
+import {useLiveRefresh} from '@/hooks/use-live-refresh';
 import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
 import {NativeSelect} from '@/components/ui/native-select';
@@ -17,8 +18,9 @@ export default function BookingEditor({booking,courses,bookings,onClose,onSaved}
  const [form,setForm]=useState({memo:booking?.admin_memo||'',name:booking?.name||'',school:booking?.school||'',grade:booking?.grade||'중1',phone:booking?.phone||'',courseId:booking?.course_id||'',date:booking?.date||'',time:booking?booking.start+'|'+booking.end:''});
  const [month,setMonth]=useState(()=>new Date((booking?.date||key(new Date())).slice(0,7)+'-01T12:00:00'));
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[blocks,setBlocks]=useState<ReservationBlock[]|null>(null);
- // Availability is fetched when opening, and rechecked atomically when saving.
- useEffect(()=>{let active=true;fetch('/api/courses').then(r=>r.json()).then((d:any)=>{if(!d.blocks)throw new Error();if(active)setBlocks(d.blocks)}).catch(()=>{if(active)setError('예약 차단 정보를 불러오지 못했습니다. 창을 닫고 다시 열어 주세요.')});return ()=>{active=false}},[]);
+ // Keep open editors current; the server also checks availability atomically.
+ useEffect(()=>{let active=true;fetch('/api/courses',{cache:'no-store'}).then(r=>r.json()).then((d:any)=>{if(!d.blocks)throw new Error();if(active)setBlocks(d.blocks)}).catch(()=>{if(active)setError('예약 차단 정보를 불러오지 못했습니다. 창을 닫고 다시 열어 주세요.')});return ()=>{active=false}},[]);
+ useLiveRefresh(async()=>{const r=await fetch('/api/courses',{cache:'no-store'});if(!r.ok)throw new Error('예약 차단 정보를 불러오지 못했습니다.');const d=await r.json() as {blocks:ReservationBlock[]};setBlocks(d.blocks)},!busy);
  const update=(field:keyof typeof form,value:string)=>setForm(f=>({...f,[field]:value}));
  const c=courses.find(c=>c.id===form.courseId),today=key(new Date());
  const locked=!!booking&&(booking.attendance!=='unmarked'||new Date(booking.date+'T'+booking.end+':00+09:00').getTime()<=Date.now());
@@ -27,6 +29,7 @@ export default function BookingEditor({booking,courses,bookings,onClose,onSaved}
  const unavailable=(date:string,start:string,end:string)=>!c||blocks===null||reservationBlocked(blocks,c.id,date,start,end)||peakOccupancy(remaining,c.id,date,start,end)>=c.capacity;
  const count=new Date(month.getFullYear(),month.getMonth()+1,0).getDate(),cells=[...Array(month.getDay()).fill(null),...Array.from({length:count},(_,i)=>key(new Date(month.getFullYear(),month.getMonth(),i+1)))];
  const changed=!!booking&&(form.courseId!==booking.course_id||form.date!==booking.date||form.time!==booking.start+'|'+booking.end);
+ useEffect(()=>{if(form.time&&blocks&&(!booking||changed)){const[start,end]=form.time.split('|');if(reservationBlocked(blocks,form.courseId,form.date,start,end)){setForm(f=>({...f,time:''}));setError('선택한 시간이 관리자에 의해 차단되었습니다. 다른 시간을 선택해 주세요.')}}},[blocks,form.courseId,form.date,form.time,changed,booking]);
  async function save(){setBusy(true);setError('');try{const [start,end]=form.time.split('|');const r=await fetch('/api/admin/bookings',{method:booking?'PATCH':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...form,start,end,id:booking?.id,original:booking?fingerprint(booking):undefined})});const d:any=await r.json();if(!r.ok)throw new Error(d.error||'저장하지 못했습니다.');await onSaved(d.accessCode);onClose()}catch(e){setError(e instanceof Error?e.message:'저장하지 못했습니다.')}finally{setBusy(false)}}
  return <Dialog open onOpenChange={open=>{if(!open&&!busy)onClose()}}><DialogContent className="admin-booking-editor" showCloseButton={!busy} onEscapeKeyDown={e=>{if(busy)e.preventDefault()}} onInteractOutside={e=>e.preventDefault()}><DialogHeader><DialogTitle>{booking?'예약 수정':'학생 대신 예약 추가'}</DialogTitle><DialogDescription>{booking?'학생 정보와 예약 일정을 수정합니다. 조회 코드는 유지됩니다.':'학생 정보를 입력하고 예약 일정을 선택하면 즉시 확정됩니다.'}</DialogDescription></DialogHeader><div className="fields">
  {!booking&&<label>기존 학생 불러오기<NativeSelect defaultValue="" onChange={e=>{const b=bookings.find(b=>b.id===e.target.value);if(b)setForm(f=>({...f,name:b.name,school:b.school,grade:b.grade,phone:b.phone}))}}><option value="">직접 입력</option>{Array.from(new Map(bookings.map(b=>[b.name+'|'+b.phone,b])).values()).map(b=><option key={b.id} value={b.id}>{b.name} · {b.school} · {b.phone}</option>)}</NativeSelect></label>}
