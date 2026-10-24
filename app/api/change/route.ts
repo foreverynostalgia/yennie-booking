@@ -1,3 +1,4 @@
+import {studentLookupAuthorized} from '@/lib/student-lookup';
 import {blockAppliesSql} from '@/lib/reservation-blocks';
 import {queueGoogleCalendarSync} from '@/lib/google-calendar';
 import {acceptsGrade} from '@/lib/course-grades';
@@ -11,9 +12,10 @@ import {parseSchedules} from '@/lib/schedules';
 export async function POST(req:NextRequest){
  if(!sameOrigin(req))return fail('요청을 확인할 수 없습니다.',403);
  try{
-  const x=await req.json() as Record<string,unknown>,id=String(x.id||''),name=String(x.name||'').trim(),p=phone(String(x.phone||'')),code=String(x.accessCode||'').trim().replace(/^ye/i,'YE'),date=String(x.date||''),start=String(x.start||''),end=String(x.end||'');
-  if(!id||!name||!p||!code||!validDate(date))return fail('예약 정보와 변경할 날짜를 확인해 주세요.');
-  const b=await db().prepare('SELECT b.course_id,b.grade,c.target_grades,b.date,b.status,COALESCE(b.time_start,c.start) AS start,COALESCE(b.time_end,c.end) AS end,c.title,c.day,c.start AS course_start,c.end AS course_end,c.schedules,c.start_date,c.end_date,c.capacity,c.active FROM bookings b JOIN courses c ON c.id=b.course_id WHERE b.id=? AND b.name=? AND b.phone=? AND b.access_code=?').bind(id,name,p,code.startsWith('YE')?code.toUpperCase():code.toLowerCase()).first<{course_id:string;grade:string;target_grades:string;date:string;status:string;start:string;end:string;title:string;day:number;course_start:string;course_end:string;schedules:string;start_date:string|null;end_date:string|null;capacity:number;active:number}>();
+  const x=await req.json() as Record<string,unknown>,id=String(x.id||''),name=String(x.name||'').trim(),p=phone(String(x.phone||'')),date=String(x.date||''),start=String(x.start||''),end=String(x.end||'');
+  if(!id||!name||!p||!validDate(date))return fail('예약 정보와 변경할 날짜를 확인해 주세요.');
+  if(!await studentLookupAuthorized(req,name,p))return fail('이름과 연락처로 예약을 다시 조회해 주세요.',401);
+  const b=await db().prepare('SELECT b.course_id,b.grade,c.target_grades,b.date,b.status,COALESCE(b.time_start,c.start) AS start,COALESCE(b.time_end,c.end) AS end,c.title,c.day,c.start AS course_start,c.end AS course_end,c.schedules,c.start_date,c.end_date,c.capacity,c.active FROM bookings b JOIN courses c ON c.id=b.course_id WHERE b.id=? AND b.name=? AND b.phone=?').bind(id,name,p).first<{course_id:string;grade:string;target_grades:string;date:string;status:string;start:string;end:string;title:string;day:number;course_start:string;course_end:string;schedules:string;start_date:string|null;end_date:string|null;capacity:number;active:number}>();
   if(!b)return fail('예약을 찾을 수 없습니다.',404);
   if(!acceptsGrade(b.target_grades,b.grade))return fail('현재 학년의 대상 수업이 아닙니다. 관리자에게 문의해 주세요.');
   if(b.status!=='confirmed'||!future(b.date,b.end))return fail('이 예약은 변경 요청할 수 없습니다.',409);
