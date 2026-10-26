@@ -1,6 +1,6 @@
 'use client';
 import {useEffect,useRef} from 'react';
-export function announceBookingChange(){window.dispatchEvent(new Event('booking-change'));const channel=new BroadcastChannel('booking-updates');channel.postMessage('changed');channel.close()}
+export function announceBookingChange(){if(window.parent!==window)window.parent.postMessage({type:'ye-sci-data-changed'},location.origin);window.dispatchEvent(new Event('booking-change'));const channel=new BroadcastChannel('booking-updates');channel.postMessage('changed');channel.close()}
 export function useLiveRefresh(refresh:()=>Promise<void>,enabled=true){
  const latest=useRef(refresh);latest.current=refresh;
  useEffect(()=>{if(!enabled)return;let running=false;

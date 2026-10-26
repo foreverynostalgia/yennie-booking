@@ -6,7 +6,16 @@ export async function GET(req:NextRequest){if(!await canViewAdmin(req))return fa
 export async function POST(req:NextRequest){
  if(!await protectedStudentMutation(req))return fail('관리자 로그인이 필요합니다.',401);
  try{
- const x=await req.json() as any,items=Array.isArray(x.students)?x.students:[x];
+ const x=await req.json() as any;
+ // A manager's local ID is the durable idempotency key. Retry never makes a second account.
+ if(x.action==='manager-upsert'){
+  if(typeof x.managerId!=='string'||!/^[a-zA-Z0-9_-]{1,80}$/.test(x.managerId))return fail('학생 ID를 확인해 주세요.');
+  const existing=await db().prepare('SELECT * FROM students WHERE id=? OR (name=? AND phone=?) LIMIT 1').bind(x.bookingStudentId||x.managerId,String(x.name||'').trim(),phone(String(x.phone||''))).first<StudentRecord>();
+  if(x.bookingStudentId&&existing?.id!==x.bookingStudentId)return fail('연결된 학생을 찾을 수 없습니다.',404);
+  x.id=existing?.id;x.active=x.active===undefined?(existing?!!existing.active:true):x.active;
+  x.nickname=existing?.nickname||('학생'+crypto.randomUUID().replace(/-/g,'').slice(0,12));
+ }
+ const items=Array.isArray(x.students)?x.students:[x];
  if(!items.length||items.length>200)return fail('한 번에 1~200명을 등록해 주세요.');
  const rows:any[]=[],seen=new Set<string>(),identities=new Set<string>();
  for(let i=0;i<items.length;i++){
@@ -20,7 +29,7 @@ export async function POST(req:NextRequest){
   if(await db().prepare('SELECT id FROM students WHERE (nickname=? OR (name=? AND phone=?)) AND id<>?').bind(nickname,name,p,id).first())return fail(`${i+1}행: 이미 등록된 닉네임 또는 학생입니다. 기존 학생을 수정해 주세요.`,409);
   let pin=!old||a.resetPin===true?generatePin():'';
   if(old&&pin&&await verifyPin(pin,old.pin_hash))pin=`YE${String((Number(pin.slice(2))+1)%10000).padStart(4,'0')}`;
-  const studentId=id||crypto.randomUUID();
+  const studentId=id||(x.action==='manager-upsert'?x.managerId:crypto.randomUUID());
   rows.push({id:studentId,nickname,name,school,academy,grade,phone:p,active:a.active===false||a.active===0?0:1,pin,pin_hash:pin?await pinHash(pin):old!.pin_hash,pin_encrypted:pin?await encryptStudentPin(pin,studentId):old?.pin_encrypted||null,old});
  }
  const now=new Date().toISOString(),statements=[];
@@ -30,6 +39,6 @@ export async function POST(req:NextRequest){
   statements.push(db().prepare('UPDATE bookings SET student_id=? WHERE student_id IS NULL AND name=? AND phone=?').bind(r.id,r.name,r.phone));
  }
  await db().batch(statements);
- const response=json({saved:rows.length,credentials:rows.filter(r=>r.pin).map(r=>({nickname:r.nickname,pin:r.pin})),linked:true});response.headers.set('Cache-Control','no-store');return response;
+ const response=json({saved:rows.length,students:rows.map(r=>({id:r.id,nickname:r.nickname,name:r.name,school:r.school,academy:r.academy,grade:r.grade,phone:r.phone,active:r.active})),credentials:rows.filter(r=>r.pin).map(r=>({nickname:r.nickname,pin:r.pin})),linked:true});response.headers.set('Cache-Control','no-store');return response;
  }catch(e){return fail('학생 정보를 저장하지 못했습니다. 중복 닉네임과 파일 내용을 확인해 주세요.',409)}
 }
