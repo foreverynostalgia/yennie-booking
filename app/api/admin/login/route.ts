@@ -5,8 +5,9 @@ export async function POST(req:NextRequest){
   const accounts=adminAccounts();
   if(!accounts.length)return fail('관리자 설정이 완료되지 않았습니다.',503);
   const body=await req.json().catch(()=>null) as {username?:unknown;password?:unknown}|null;
-  if(!body||!accounts.some(account=>matchesAdmin(account,body.username,body.password)))return fail('아이디 또는 비밀번호가 올바르지 않습니다.',401);
-  const res=json({ok:true});
-  res.cookies.set('admin_session',await loginCookie(),{httpOnly:true,secure:true,sameSite:'strict',path:'/',maxAge:43200});
+  const account=body?accounts.find(account=>matchesAdmin(account,body.username,body.password)):null;
+  if(!account)return fail('아이디 또는 비밀번호가 올바르지 않습니다.',401);
+  const res=json({ok:true,role:account.role});
+  res.cookies.set('admin_session',await loginCookie(account.username),{httpOnly:true,secure:true,sameSite:'strict',path:'/',maxAge:43200});
   return res;
 }

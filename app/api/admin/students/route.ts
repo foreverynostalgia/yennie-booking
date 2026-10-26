@@ -1,7 +1,7 @@
 import {NextRequest} from 'next/server';
-import {admin,db,fail,json,phone,protectedMutation} from '@/lib/server';
+import {canViewAdmin,db,fail,json,phone,protectedMutation} from '@/lib/server';
 import {generatePin,normalizeNickname,pinHash,verifyPin,validNickname,type StudentRecord} from '@/lib/students';
-export async function GET(req:NextRequest){if(!await admin(req))return fail('관리자 로그인이 필요합니다.',401);try{const r=await db().prepare('SELECT id,nickname,name,school,grade,phone,active,created_at,updated_at FROM students ORDER BY name,nickname').all();const response=json({students:r.results});response.headers.set('Cache-Control','no-store');return response}catch{return fail('학생 목록을 불러오지 못했습니다.',503)}}
+export async function GET(req:NextRequest){if(!await canViewAdmin(req))return fail('관리자 로그인이 필요합니다.',401);try{const r=await db().prepare('SELECT id,nickname,name,school,grade,phone,active,created_at,updated_at FROM students ORDER BY name,nickname').all();const response=json({students:r.results});response.headers.set('Cache-Control','no-store');return response}catch{return fail('학생 목록을 불러오지 못했습니다.',503)}}
 export async function POST(req:NextRequest){
  if(!await protectedMutation(req))return fail('관리자 로그인이 필요합니다.',401);
  try{

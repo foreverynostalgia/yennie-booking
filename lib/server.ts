@@ -14,8 +14,8 @@ export function adminPassword(){return String((env as unknown as Record<string,s
 export function adminAccounts(){
   const settings=env as unknown as Record<string,string>;
   return [
-    {username:adminUsername(),password:adminPassword()},
-    {username:String(settings.ADMIN_SECONDARY_USERNAME||''),password:String(settings.ADMIN_SECONDARY_PASSWORD||'')},
+    {username:adminUsername(),password:adminPassword(),role:'owner' as const},
+    {username:String(settings.ADMIN_SECONDARY_USERNAME||''),password:String(settings.ADMIN_SECONDARY_PASSWORD||''),role:'viewer' as const},
   ].filter(account=>account.username&&account.password);
 }
 export function matchesAdmin(account:{username:string;password:string},username:unknown,password:unknown){
@@ -25,6 +25,24 @@ export function matchesAdmin(account:{username:string;password:string},username:
   return account.username===username&&mismatch===0;
 }
 async function sig(value:string){const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(secret()),{name:'HMAC',hash:'SHA-256'},false,['sign']);return Array.from(new Uint8Array(await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(value)))).map(x=>x.toString(16).padStart(2,'0')).join('')}
-export async function admin(req:NextRequest){if(!secret()||!adminPassword())return false;const token=req.cookies.get('admin_session')?.value||'';const [expiry,mac]=token.split('.');return !!expiry&&Number(expiry)>Date.now()&&mac===await sig(expiry)}
-export async function loginCookie(){const expiry=String(Date.now()+12*60*60*1000);return `${expiry}.${await sig(expiry)}`}
+export type AdminRole='owner'|'viewer';
+export async function adminRole(req:NextRequest):Promise<AdminRole|null>{
+ if(!secret())return null;
+ const [version,encodedUsername,expiry,mac,...extra]=(req.cookies.get('admin_session')?.value||'').split('.');
+ if(version!=='v2'||extra.length||!encodedUsername||!/^\d+$/.test(expiry)||Number(expiry)<=Date.now()||Number(expiry)>Date.now()+43200000||!mac)return null;
+ let username:string;try{username=decodeURIComponent(encodedUsername)}catch{return null}
+ const account=adminAccounts().find(a=>a.username===username);if(!account)return null;
+ const expected=await sig(JSON.stringify(['admin-session-v2',account.username,account.role,account.password,expiry]));
+ if(mac.length!==expected.length)return null;let mismatch=0;for(let i=0;i<mac.length;i++)mismatch|=mac.charCodeAt(i)^expected.charCodeAt(i);
+ return mismatch?null:account.role;
+}
+// Default administrator access remains full-control only. Viewer access is
+// explicitly allowed on the calendar, planner and student-list read endpoints.
+export async function admin(req:NextRequest){return await adminRole(req)==='owner'}
+export async function canViewAdmin(req:NextRequest){return await adminRole(req)!==null}
+export async function loginCookie(username=adminUsername()){
+ const account=adminAccounts().find(a=>a.username===username);if(!account)throw new Error('관리자 계정을 확인해 주세요.');
+ const expiry=String(Date.now()+43200000);
+ return `v2.${encodeURIComponent(account.username)}.${expiry}.${await sig(JSON.stringify(['admin-session-v2',account.username,account.role,account.password,expiry]))}`;
+}
 export async function protectedMutation(req:NextRequest){return sameOrigin(req)&&await admin(req)}
