@@ -26,9 +26,9 @@ export function matchesAdmin(account:{username:string;password:string},username:
 }
 async function sig(value:string){const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(secret()),{name:'HMAC',hash:'SHA-256'},false,['sign']);return Array.from(new Uint8Array(await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(value)))).map(x=>x.toString(16).padStart(2,'0')).join('')}
 export type AdminRole='owner'|'viewer';
-export async function adminRole(req:NextRequest):Promise<AdminRole|null>{
+export async function adminRoleForToken(token:string):Promise<AdminRole|null>{
  if(!secret())return null;
- const [version,encodedUsername,expiry,mac,...extra]=(req.cookies.get('admin_session')?.value||'').split('.');
+ const [version,encodedUsername,expiry,mac,...extra]=token.split('.');
  if(version!=='v2'||extra.length||!encodedUsername||!/^\d+$/.test(expiry)||Number(expiry)<=Date.now()||Number(expiry)>Date.now()+43200000||!mac)return null;
  let username:string;try{username=decodeURIComponent(encodedUsername)}catch{return null}
  const account=adminAccounts().find(a=>a.username===username);if(!account)return null;
@@ -36,6 +36,7 @@ export async function adminRole(req:NextRequest):Promise<AdminRole|null>{
  if(mac.length!==expected.length)return null;let mismatch=0;for(let i=0;i<mac.length;i++)mismatch|=mac.charCodeAt(i)^expected.charCodeAt(i);
  return mismatch?null:account.role;
 }
+export async function adminRole(req:NextRequest){return adminRoleForToken(req.cookies.get('admin_session')?.value||'')}
 // Default administrator access remains full-control only. Viewer access is
 // explicitly allowed on the calendar, planner and student-list read endpoints.
 export async function admin(req:NextRequest){return await adminRole(req)==='owner'}

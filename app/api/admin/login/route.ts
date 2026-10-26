@@ -7,7 +7,7 @@ export async function POST(req:NextRequest){
   const body=await req.json().catch(()=>null) as {username?:unknown;password?:unknown}|null;
   const account=body?accounts.find(account=>matchesAdmin(account,body.username,body.password)):null;
   if(!account)return fail('아이디 또는 비밀번호가 올바르지 않습니다.',401);
-  const res=json({ok:true,role:account.role});
+  const res=json({ok:true,role:account.role});res.headers.set('Cache-Control','no-store');
   res.cookies.set('admin_session',await loginCookie(account.username),{httpOnly:true,secure:true,sameSite:'strict',path:'/',maxAge:43200});
   return res;
 }

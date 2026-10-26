@@ -7,7 +7,7 @@ for(const f of fs.readdirSync(root+'/drizzle').filter(x=>x.endsWith('.sql')).sor
 const env={ADMIN_USERNAME:'test-admin',ADMIN_PASSWORD:'test-only-admin',ADMIN_SECONDARY_USERNAME:'1630sci',ADMIN_SECONDARY_PASSWORD:'viewer-test-secret',SESSION_SECRET:'test-only-secret',DB:{prepare(query){let args=[];return {bind(...values){args=values;return this},async all(){return {results:sql.prepare(query).all(...args)}},async first(){return sql.prepare(query).get(...args)||null},async run(){return {meta:{changes:Number(sql.prepare(query).run(...args).changes)}}}}}}};
 env.DB.batch=async statements=>{sql.exec('BEGIN');try{const values=[];for(const statement of statements)values.push(await statement.run());sql.exec('COMMIT');return values}catch(e){sql.exec('ROLLBACK');throw e}};
 const queued=[];const stubs={'cloudflare:workers':{env,waitUntil(){}},'@/lib/google-calendar':{queueGoogleCalendarSync:async ids=>queued.push(...ids)},'@/lib/admin-push':{notifyAdminPush:async()=>{}},'@/lib/alimtalk':{sendReservationAlimtalk:async()=> 'unconfigured'}};
-const cache={};function load(file){if(stubs[file])return stubs[file];if(file==='next/server')return require(root+'/node_modules/next/server');if(file==='react'||file==='react/jsx-runtime')return require(root+'/node_modules/'+file);let full=file.startsWith('@/')?root+'/'+file.slice(2):file;if(!path.extname(full)){if(fs.existsSync(full+'.ts'))full+='.ts';else if(fs.existsSync(full+'.tsx'))full+='.tsx';else return require(full)} if(cache[full])return cache[full].exports;const mod={exports:{}};cache[full]=mod;new Function('require','exports','module',ts.transpileModule(fs.readFileSync(full,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2022}}).outputText)(id=>load(id.startsWith('.')?path.resolve(path.dirname(full),id)+(path.extname(id)?'':'.ts'):id),mod.exports,mod);return mod.exports}
+const cache={};function load(file){if(stubs[file])return stubs[file];if(file==='next/server')return require(root+'/node_modules/next/server');if(file==='react'||file==='react/jsx-runtime')return require(root+'/node_modules/'+file);let full=file.startsWith('@/')?root+'/'+file.slice(2):file;if(!path.extname(full)){if(fs.existsSync(full+'.ts'))full+='.ts';else if(fs.existsSync(full+'.tsx'))full+='.tsx';else return require(full)} if(cache[full])return cache[full].exports;const mod={exports:{}};cache[full]=mod;new Function('require','exports','module',ts.transpileModule(fs.readFileSync(full,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2022}}).outputText)(id=>load(id.startsWith('.')?path.resolve(path.dirname(full),id):id),mod.exports,mod);return mod.exports}
 const {NextRequest}=require(root+'/node_modules/next/server');
 function req(body,cookie='',origin='https://test.local'){return new NextRequest('https://test.local/api/test',{method:'POST',headers:{origin,'content-type':'application/json',cookie},body:JSON.stringify(body)})}
 
@@ -45,5 +45,23 @@ function routeFiles(dir){return fs.readdirSync(dir,{withFileTypes:true}).flatMap
  const React=require(root+'/node_modules/react'),{renderToStaticMarkup}=require(root+'/node_modules/react-dom/server');stubs['@/hooks/use-live-refresh']={useLiveRefresh(){},announceBookingChange(){}};
  const component=load(root+'/app/admin/students-manager.tsx').default;
  const html=renderToStaticMarkup(React.createElement(component,{readOnly:true}));assert.ok(html.includes('등록 학생 목록'));assert.ok(!html.includes('학생 개별 등록'));assert.ok(!html.includes('type="file"'));assert.ok(!html.includes('CSV 양식 내려받기'));
+ // Dedicated viewer page only renders the two allowed features, with no owner menu.
+ const viewerComponent=load(root+'/app/admin/viewer/viewer.tsx').default;
+ const viewerHtml=renderToStaticMarkup(React.createElement(viewerComponent));
+ assert.ok(viewerHtml.includes('조회 전용 메뉴'));assert.ok(viewerHtml.includes('예약 캘린더'));assert.ok(viewerHtml.includes('학생 정보 조회'));
+ for(const label of ['전체 예약','승인 요청','수업 관리','예약 차단','학생 등록','예약 추가','알림 설정'])assert.ok(!viewerHtml.includes(label),label+' must not be in viewer markup');
+ const directory=load(root+'/app/admin/viewer/student-directory.tsx').default;
+ const directoryHtml=renderToStaticMarkup(React.createElement(directory));assert.ok(directoryHtml.includes('학생 정보 조회'));assert.ok(!directoryHtml.includes('type="file"'));assert.ok(!directoryHtml.includes('학생 등록'));assert.ok(!directoryHtml.includes('PIN 재발급'));
+ // Server route guard redirects restricted tabs before any owner UI is returned.
+ let currentToken=viewer.slice('admin_session='.length);
+ stubs['next/headers']={cookies:async()=>({get:()=>currentToken?{value:currentToken}:undefined})};
+ stubs['next/navigation']={redirect:location=>{const e=new Error('redirect');e.location=location;throw e}};
+ stubs[root+'/app/admin/full-admin']= {default:()=>React.createElement('div',null,'OWNER_ONLY_SCREEN')};
+ const adminPage=load(root+'/app/admin/page.tsx').default,viewerPage=load(root+'/app/admin/viewer/page.tsx').default,plannerPage=load(root+'/app/admin/planner/page.tsx').default;
+ for(const tab of ['courses','bookings','settings','blocks','requests','cancelled','past'])await assert.rejects(()=>adminPage({searchParams:Promise.resolve({tab})}),e=>e.location==='/admin/viewer');
+ await assert.rejects(()=>adminPage({searchParams:Promise.resolve({tab:'students'})}),e=>e.location==='/admin/viewer?tab=students');
+ assert.equal((await viewerPage()).type,viewerComponent);assert.ok(await plannerPage());
+ currentToken='';await assert.rejects(()=>viewerPage(),e=>e.location==='/admin');await assert.rejects(()=>plannerPage(),e=>e.location==='/admin');
+ currentToken=owner.slice('admin_session='.length);assert.equal(renderToStaticMarkup(await adminPage({searchParams:Promise.resolve({})})),'<div>OWNER_ONLY_SCREEN</div>');
  console.log(`PASS: viewer calendar/planner/student reads; ${denied} admin mutation methods denied; settings and full reservation data blocked; full owner control preserved; cookie role tamper and legacy sessions rejected; student viewer UI hides write actions.`);
 })().catch(e=>{console.error(e);process.exitCode=1});
