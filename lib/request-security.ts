@@ -6,8 +6,8 @@ export function securityHeaders(response:Response,request:Request){
  headers.set('Permissions-Policy','camera=(), microphone=(), geolocation=()');
  headers.set('Content-Security-Policy',"object-src 'none'; base-uri 'self'; form-action 'self'");
  if(new URL(request.url).protocol==='https:')headers.set('Strict-Transport-Security','max-age=31536000');
- if(path.startsWith('/api/')||path==='/admin'||path.startsWith('/admin/')){
-  headers.set('Cache-Control','private, no-store');headers.set('Pragma','no-cache');
+ if(path.startsWith('/api/')||path==='/admin'||path.startsWith('/admin/')||path==='/learning'||path==='/report'){
+  headers.set('Cache-Control','private, no-store');headers.set('Pragma','no-cache');headers.set('Referrer-Policy','no-referrer');headers.set('X-Robots-Tag','noindex, nofollow');
   headers.set('X-Frame-Options','DENY');
   headers.set('Content-Security-Policy',"object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'");
  }
@@ -21,7 +21,7 @@ export async function guardRequest(request:Request,database:D1Database|undefined
   const origin=request.headers.get('origin'),site=request.headers.get('sec-fetch-site');
   if(site==='cross-site'||(origin!==null&&origin!==new URL(request.url).origin))return reject('요청을 확인할 수 없습니다.',403);
   const length=Number(request.headers.get('content-length'));
-  if(Number.isFinite(length)&&length>512*1024)return reject('요청 크기가 너무 큽니다.',413);
+  if(Number.isFinite(length)&&length>(path==='/api/admin/learning/paper'?8*1024*1024:512*1024))return reject('요청 크기가 너무 큽니다.',413);
  }
  // D1 counters are shared across isolates and survive deployments. Reuse the
  // existing expiry-based counter table; only hashed IP keys are stored.
