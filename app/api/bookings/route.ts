@@ -29,12 +29,12 @@ export async function createBooking(req:NextRequest,adminMemo='',overrideWeeklyL
   const enrolled=student?null:await db().prepare('SELECT id FROM students WHERE name=? AND phone=?').bind(name,p).first<{id:string}>();
   if(enrolled&&!adminSchedule)return fail('등록된 닉네임과 예약 PIN으로 접속해 주세요.',401);
   if(enrolled&&adminSchedule)studentId=enrolled.id;
-  const c=await db().prepare(`SELECT * FROM courses WHERE id=?${adminSchedule?'':' AND active=1'}`).bind(courseId).first<{id:string;title:string;target_grades:string;day:number;start:string;end:string;schedules:string;capacity:number;start_date:string|null;end_date:string|null}>();
+  const c=await db().prepare(`SELECT * FROM courses WHERE id=?${adminSchedule?'':' AND active=1'}`).bind(courseId).first<{id:string;title:string;target_grades:string;booking_minutes:number|null;day:number;start:string;end:string;schedules:string;capacity:number;start_date:string|null;end_date:string|null}>();
   if(c&&!acceptsGrade(c.target_grades,grade))return fail('선택한 학년의 대상 수업이 아닙니다.');
   if(!c)return fail('예약 가능한 수업이 아닙니다.');
   if(!adminSchedule&&!withinCoursePeriod(date,c.start_date,c.end_date))return fail('개강일과 종강일 사이의 날짜만 예약할 수 있습니다.');
   const day=(new Date(`${date}T12:00:00+09:00`).getUTCDay()+6)%7;
-  const slots=bookingSlots(c.title,parseSchedules(c.schedules,{day:c.day,start:c.start,end:c.end}));
+  const slots=bookingSlots(c.title,parseSchedules(c.schedules,{day:c.day,start:c.start,end:c.end}),c.booking_minutes);
   if(adminSchedule&&!validAdminBookingSchedule(date,start,end))return fail('올바른 날짜와 시작·종료 시간을 선택해 주세요. 종료 시간은 시작 시간보다 늦어야 합니다.');
   if(!adminSchedule&&(!slots.some(s=>s.day===day&&s.start===start&&s.end===end)||!future(date,start)))return fail('예약 가능한 날짜와 시간이 아닙니다. 수업 시간 범위 안에서 알맞은 시간을 선택해 주세요.');
   const week=bookingWeek(date),id=crypto.randomUUID();let code='',saved=false;
