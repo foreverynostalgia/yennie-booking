@@ -53,8 +53,8 @@ export default function Admin(){
   const [slots,setSlots]=useState<Slot[]>([{day:0,start:'18:00',end:'20:00'}]),[capacity,setCapacity]=useState(10);
   const [weeklyLimit,setWeeklyLimit]=useState(0);
   const [targetGrades,setTargetGrades]=useState<string[]>([...middleGrades]);
-  const [role,setRole]=useState<'owner'|'viewer'|null>(null);
-  const readOnly=role==='viewer';
+  const [role,setRole]=useState<'owner'|'student_manager'|null>(null);
+  const readOnly=role==='student_manager';
   const [requestedView,setView]=useState<View>('requests');
   const view=readOnly&&requestedView!=='calendar'&&requestedView!=='students'?'calendar':requestedView;
   const [bookingEditor,setBookingEditor]=useState<Booking|null|undefined>(undefined);
@@ -65,7 +65,7 @@ export default function Admin(){
     if(revision!==authRevision.current)return;
     if(d.role!=='owner'){
       setAuthorized(false);setRole(null);setCourses([]);setBookings([]);setBookingEditor(undefined);
-      if(d.role==='viewer'){window.location.replace('/admin/viewer');return}
+      if(d.role==='student_manager'){window.location.replace('/admin/viewer');return}
       throw new Error('관리자 권한을 확인하지 못했습니다. 다시 로그인해 주세요.');
     }
     setRole('owner');setAuthorized(true);setCourses(d.courses);setBookings(d.bookings);setAlimtalkConfigured(!!d.alimtalkConfigured);
@@ -98,14 +98,14 @@ export default function Admin(){
     authRevision.current++;
     setAuthorized(false);setRole(null);setCourses([]);setBookings([]);setBookingEditor(undefined);
     const result=await call('/api/admin/login','POST',{username,password});
-    if(result.role==='viewer'||username.trim().toLowerCase()==='1630sci'){window.location.replace('/admin/viewer');return}
+    if(result.role==='student_manager'||username.trim().toLowerCase()==='1630sci'){window.location.replace('/admin/viewer');return}
     if(result.role!=='owner')throw new Error('관리자 권한을 확인하지 못했습니다. 다시 로그인해 주세요.');
     await load();
   });
   return <main className="shell admin-shell">
     <header className="top"><div className="logo"><span className="logo-mark">S</span><div><strong>옌쌤 과학</strong><small>예약 관리자</small></div></div><a className="quiet-link" href="/">학생 페이지</a></header>
     {!authorized||role!=='owner'?<section className="panel login"><p className="eyebrow">ADMIN</p><h1>관리자 로그인</h1><label>관리자 아이디<Input value={username} onChange={e=>setUsername(e.target.value)} autoComplete="username"/></label><label>관리자 비밀번호<Input type="password" value={password} onChange={e=>setPassword(e.target.value)} autoComplete="current-password" onKeyDown={e=>e.key==='Enter'&&signIn()}/></label><Button className="main-button" disabled={busy} onClick={signIn}>로그인</Button>{message&&<p className="notice error" role="alert">{message}</p>}</section>:<>
-      <section className="admin-heading"><div><p className="eyebrow">옌쌤 과학 · 관리자</p><h1>예약 관리</h1><p>{readOnly?'캘린더와 학생 정보를 조회할 수 있는 계정입니다.':'예약과 취소 요청을 한곳에서 확인하세요.'}</p></div><Button variant="outline" onClick={()=>run(async()=>{authRevision.current++;await call('/api/admin/logout','POST');setAuthorized(false);setRole(null);setCourses([]);setBookings([]);setPassword('')})}>로그아웃</Button></section>
+      <section className="admin-heading"><div><p className="eyebrow">옌쌤 과학 · 관리자</p><h1>예약 관리</h1><p>{readOnly?'캘린더 조회와 학생 관리 권한이 있는 계정입니다.':'예약과 취소 요청을 한곳에서 확인하세요.'}</p></div><Button variant="outline" onClick={()=>run(async()=>{authRevision.current++;await call('/api/admin/logout','POST');setAuthorized(false);setRole(null);setCourses([]);setBookings([]);setPassword('')})}>로그아웃</Button></section>
       {!readOnly&&<div className="admin-overview" aria-label="예약 현황"><div className="overview-card"><span>예약 확정</span><strong>{confirmed}<small>건</small></strong></div><div className="overview-card attention"><span>승인 대기</span><strong>{pending.length}<small>건</small></strong></div><div className="overview-card"><span>등록된 수업</span><strong>{courses.filter(x=>x.active).length}<small>개</small></strong></div></div>}
       {readOnly?<nav className="tabs admin-tabs" aria-label="조회 메뉴"><button className={view==='calendar'?'active':''} onClick={()=>setView('calendar')}>예약 캘린더</button><button className={view==='students'?'active':''} onClick={()=>setView('students')}>학생 관리 · 조회 전용</button></nav>:<nav className="tabs admin-tabs" aria-label="관리 메뉴"><button className={view==='requests'?'active':''} onClick={()=>setView('requests')}>승인 요청 <b>{pending.length}</b></button><button className={view==='bookings'?'active':''} onClick={()=>setView('bookings')}>전체 예약</button><button className={view==='past'?'active':''} onClick={()=>setView('past')}>지난 예약 <b>{bookings.filter(b=>b.status!=='cancelled'&&b.attendance&&b.attendance!=='unmarked').length}</b></button><button className={view==='cancelled'?'active':''} onClick={()=>setView('cancelled')}>취소 완료 <b>{bookings.filter(b=>b.status==='cancelled').length}</b></button><button className={view==='calendar'?'active':''} onClick={()=>setView('calendar')}>예약 캘린더</button><button className={view==='courses'?'active':''} onClick={()=>setView('courses')}>수업 관리</button><button className={view==='students'?'active':''} onClick={()=>setView('students')}>학생 관리</button><button className={view==='blocks'?'active':''} onClick={()=>setView('blocks')}>예약 차단</button><button className={view==='settings'?'active':''} onClick={()=>setView('settings')}>설정</button></nav>}
       {message&&<div className="notice error" role="alert">{message}</div>}{bookingNotice&&<div className="notice success" role="status">{bookingNotice}</div>}

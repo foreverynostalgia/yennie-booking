@@ -20,28 +20,38 @@ function request(url,method,cookie,body={}){return new NextRequest('https://test
 function routeFiles(dir){return fs.readdirSync(dir,{withFileTypes:true}).flatMap(entry=>entry.isDirectory()?routeFiles(path.join(dir,entry.name)):entry.name==='route.ts'?[path.join(dir,entry.name)]:[])}
 (async()=>{
  const owner='admin_session='+await server.loginCookie();
- const response=await login(req({username:'1630sci',password:'viewer-test-secret'}));assert.equal(response.status,200);assert.equal((await response.json()).role,'viewer');
+ const response=await login(req({username:'1630sci',password:'viewer-test-secret'}));assert.equal(response.status,200);assert.equal((await response.json()).role,'student_manager');
  const viewer=response.headers.get('set-cookie').split(';')[0];
- assert.equal(await server.adminRole(req({},owner)),'owner');assert.equal(await server.adminRole(req({},viewer)),'viewer');assert.equal(await server.admin(req({},viewer)),false);assert.equal(await server.protectedMutation(req({},viewer)),false);
+ assert.equal(await server.adminRole(req({},owner)),'owner');assert.equal(await server.adminRole(req({},viewer)),'student_manager');assert.equal(await server.admin(req({},viewer)),false);assert.equal(await server.protectedMutation(req({},viewer)),false);
  assert.equal(await server.adminRole(req({},viewer.replace('1630sci','test-admin'))),null);assert.equal(await server.adminRole(req({},viewer+'x')),null);
  // Old indistinguishable sessions must be revoked, even with a previously valid MAC.
  const secretKey=await crypto.subtle.importKey('raw',new TextEncoder().encode(env.SESSION_SECRET),{name:'HMAC',hash:'SHA-256'},false,['sign']);const expiry=String(Date.now()+100000);const mac=Buffer.from(await crypto.subtle.sign('HMAC',secretKey,new TextEncoder().encode(expiry))).toString('hex');assert.equal(await server.adminRole(req({},'admin_session='+expiry+'.'+mac)),null);
+ const oldViewerPayload=JSON.stringify(['admin-session-v2','1630sci','viewer',env.ADMIN_SECONDARY_PASSWORD,expiry]);
+ const oldViewerMac=Buffer.from(await crypto.subtle.sign('HMAC',secretKey,new TextEncoder().encode(oldViewerPayload))).toString('hex');
+ const upgradedCookie='admin_session=v2.1630sci.'+expiry+'.'+oldViewerMac;
+ assert.equal(await server.adminRole(req({},upgradedCookie)),'student_manager');assert.equal(await server.canManageStudents(req({},upgradedCookie)),true);assert.equal(await server.protectedMutation(req({},upgradedCookie)),false);
  let denied=0;
  for(const file of routeFiles(root+'/app/api/admin')){
   const endpoint='/api/admin/'+path.relative(root+'/app/api/admin',path.dirname(file)).replaceAll(path.sep,'/');
   if(endpoint.endsWith('/login')||endpoint.endsWith('/logout'))continue;
   const module=load(file);
-  for(const method of ['POST','PUT','PATCH','DELETE'])if(module[method]){const result=await module[method](request(endpoint,method,viewer));assert.ok([401,403].includes(result.status),endpoint+' '+method+' must be denied');denied++}
+  for(const method of ['POST','PUT','PATCH','DELETE'])if(module[method]&&!(endpoint==='/api/admin/students'&&method==='POST')){const result=await module[method](request(endpoint,method,viewer));assert.ok([401,403].includes(result.status),endpoint+' '+method+' must be denied');denied++}
  }
  for(const endpoint of ['blocks','push','google-calendar']){const result=await load(root+'/app/api/admin/'+endpoint+'/route.ts').GET(request('/api/admin/'+endpoint,'GET',viewer));assert.ok([401,403].includes(result.status),endpoint+' settings must be private')}
  for(const [route,query] of [['calendar','?month=2099-01'],['planner','?start=2099-01-01&days=7'],['students','']]){
   const result=await load(root+'/app/api/admin/'+route+'/route.ts').GET(request('/api/admin/'+route+query,'GET',viewer));assert.equal(result.status,200,route);assert.equal(result.headers.get('cache-control'),'no-store');
  }
- const data=load(root+'/app/api/admin/data/route.ts');const limited=await data.GET(request('/api/admin/data','GET',viewer));assert.deepEqual(await limited.json(),{role:'viewer',courses:[],bookings:[],alimtalkConfigured:false});
+ const data=load(root+'/app/api/admin/data/route.ts');const limited=await data.GET(request('/api/admin/data','GET',viewer));assert.deepEqual(await limited.json(),{role:'student_manager',courses:[],bookings:[],alimtalkConfigured:false});
  const full=await data.GET(request('/api/admin/data','GET',owner));assert.equal(full.status,200);assert.equal((await full.json()).role,'owner');
- const students=load(root+'/app/api/admin/students/route.ts');const saved=await students.POST(request('/api/admin/students','POST',owner,{nickname:'권한테스트',name:'김학생',school:'00중',grade:'중2',phone:'01012345678'}));assert.equal(saved.status,200);
- const pinEndpoint=load(root+'/app/api/admin/students/pin/route.ts');assert.equal((await pinEndpoint.GET(request('/api/admin/students/pin?id=any','GET',viewer))).status,403);
- const list=await students.GET(request('/api/admin/students','GET',viewer));const records=(await list.json()).students;assert.equal(records.length,1);assert.equal(records[0].name,'김학생');assert.ok(!('pin_hash' in records[0]));
+ const students=load(root+'/app/api/admin/students/route.ts');const saved=await students.POST(request('/api/admin/students','POST',viewer,{nickname:'권한테스트',name:'김학생',school:'00중',grade:'중2',phone:'01012345678'}));assert.equal(saved.status,200);
+ const pinEndpoint=load(root+'/app/api/admin/students/pin/route.ts');const id=sql.prepare('SELECT id FROM students WHERE nickname=?').get('권한테스트').id;
+ const pinResponse=await pinEndpoint.GET(request('/api/admin/students/pin?id='+id,'GET',viewer));assert.equal(pinResponse.status,200);assert.match((await pinResponse.json()).pin,/^YE\d{4}$/);
+ const update={id,nickname:'권한테스트',name:'김학생',school:'새학교중',grade:'중2',phone:'01012345678'};
+ assert.equal((await students.POST(request('/api/admin/students','POST',viewer,update))).status,200);
+ const reset=await students.POST(request('/api/admin/students','POST',viewer,{...update,resetPin:true}));assert.equal(reset.status,200);assert.match((await reset.json()).credentials[0].pin,/^YE\d{4}$/);
+ assert.equal((await students.POST(request('/api/admin/students','POST',viewer,{students:[{nickname:'업로드확인',name:'이학생',school:'00중',grade:'중2',phone:'01022223333'}]}))).status,200);
+ const deniedOrigin=await students.POST(new NextRequest('https://test.local/api/admin/students',{method:'POST',headers:{origin:'https://other.local',cookie:viewer},body:JSON.stringify(update)}));assert.ok([401,403].includes(deniedOrigin.status));
+ const list=await students.GET(request('/api/admin/students','GET',viewer));const records=(await list.json()).students;assert.equal(records.length,2);assert.ok(records.some(s=>s.name==='김학생'&&s.school==='새학교중'));assert.ok(!('pin_hash' in records[0]));
  // Read-only rendering contains filters and list, and no enrollment/import/PIN actions.
  const React=require(root+'/node_modules/react'),{renderToStaticMarkup}=require(root+'/node_modules/react-dom/server');stubs['@/hooks/use-live-refresh']={useLiveRefresh(){},announceBookingChange(){}};
  const component=load(root+'/app/admin/students-manager.tsx').default;
@@ -49,8 +59,9 @@ function routeFiles(dir){return fs.readdirSync(dir,{withFileTypes:true}).flatMap
  // Dedicated viewer page only renders the two allowed features, with no owner menu.
  const viewerComponent=load(root+'/app/admin/viewer/viewer.tsx').default;
  const viewerHtml=renderToStaticMarkup(React.createElement(viewerComponent));
- assert.ok(viewerHtml.includes('조회 전용 메뉴'));assert.ok(viewerHtml.includes('예약 캘린더'));assert.ok(viewerHtml.includes('학생 정보 조회'));
- for(const label of ['전체 예약','승인 요청','수업 관리','예약 차단','학생 등록','예약 추가','알림 설정'])assert.ok(!viewerHtml.includes(label),label+' must not be in viewer markup');
+ assert.ok(viewerHtml.includes('캘린더 및 학생 관리 메뉴'));assert.ok(viewerHtml.includes('예약 캘린더'));assert.ok(viewerHtml.includes('학생 관리'));
+ for(const label of ['전체 예약','승인 요청','수업 관리','예약 차단','예약 추가','알림 설정'])assert.ok(!viewerHtml.includes(label),label+' must not be in viewer markup');
+ const managementHtml=renderToStaticMarkup(React.createElement(component));assert.ok(managementHtml.includes('학생 개별 등록'));assert.ok(managementHtml.includes('type="file"'));assert.ok(managementHtml.includes('CSV 양식 내려받기'));
  const directory=load(root+'/app/admin/viewer/student-directory.tsx').default;
  const directoryHtml=renderToStaticMarkup(React.createElement(directory));assert.ok(directoryHtml.includes('학생 정보 조회'));assert.ok(!directoryHtml.includes('type="file"'));assert.ok(!directoryHtml.includes('학생 등록'));assert.ok(!directoryHtml.includes('PIN 재발급'));assert.ok(!directoryHtml.includes('PIN 확인'));
  // Server route guard redirects restricted tabs before any owner UI is returned.
@@ -64,5 +75,5 @@ function routeFiles(dir){return fs.readdirSync(dir,{withFileTypes:true}).flatMap
  assert.equal((await viewerPage()).type,viewerComponent);assert.ok(await plannerPage());
  currentToken='';await assert.rejects(()=>viewerPage(),e=>e.location==='/admin');await assert.rejects(()=>plannerPage(),e=>e.location==='/admin');
  currentToken=owner.slice('admin_session='.length);assert.equal(renderToStaticMarkup(await adminPage({searchParams:Promise.resolve({})})),'<div>OWNER_ONLY_SCREEN</div>');
- console.log(`PASS: viewer calendar/planner/student reads; ${denied} admin mutation methods denied; settings and full reservation data blocked; full owner control preserved; cookie role tamper and legacy sessions rejected; student viewer UI hides write actions.`);
+ console.log(`PASS: student-manager calendar/planner read, student create/edit/import and PIN reveal/reset; ${denied} admin mutation methods denied; settings and full reservation data blocked; full owner control preserved; cookie role tamper and legacy sessions rejected; dedicated student-management UI and protected owner routes.`);
 })().catch(e=>{console.error(e);process.exitCode=1});

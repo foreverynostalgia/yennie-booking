@@ -1,10 +1,10 @@
 import {NextRequest} from 'next/server';
-import {admin,db,json} from '@/lib/server';
+import {canManageStudents,db,json} from '@/lib/server';
 import {decryptStudentPin} from '@/lib/student-pin';
 import {verifyPin} from '@/lib/students';
 const result=(value:unknown,status=200)=>{const response=json(value,status);response.headers.set('Cache-Control','no-store, private');response.headers.set('Pragma','no-cache');return response};
 export async function GET(req:NextRequest){
- if(!await admin(req))return result({error:'PIN 확인은 전체 권한 관리자만 가능합니다.'},403);
+ if(!await canManageStudents(req))return result({error:'PIN 확인은 학생 관리 권한이 있는 관리자만 가능합니다.'},403);
  try{
   const id=new URL(req.url).searchParams.get('id')||'';if(!id)return result({error:'학생을 선택해 주세요.'},400);
   const row=await db().prepare('SELECT nickname,pin_hash,pin_encrypted FROM students WHERE id=?').bind(id).first<{nickname:string;pin_hash:string;pin_encrypted:string|null}>();

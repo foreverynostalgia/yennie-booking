@@ -13,7 +13,7 @@ const server=load(root+'/lib/server.ts');
  for(const [username,password] of [['primary-test','primary-test-secret'],['secondary-test','secondary-test-secret']]){
   const response=await login(req({username,password}));assert.equal(response.status,200);
   const cookie=response.headers.get('set-cookie');assert.match(cookie,/HttpOnly/i);assert.match(cookie,/Secure/i);
-  assert.equal(await server.adminRole(req({},cookie)),username==='primary-test'?'owner':'viewer');assert.equal(await server.admin(req({},cookie)),username==='primary-test');assert.equal(await server.protectedMutation(req({},cookie)),username==='primary-test');
+  assert.equal(await server.adminRole(req({},cookie)),username==='primary-test'?'owner':'student_manager');assert.equal(await server.admin(req({},cookie)),username==='primary-test');assert.equal(await server.protectedMutation(req({},cookie)),username==='primary-test');
  }
  for(const body of [{username:'primary-test',password:'secondary-test-secret'},{username:'secondary-test',password:'primary-test-secret'},{username:'unknown',password:'secondary-test-secret'},{username:'secondary-test',password:''},{username:'secondary-test',password:123},{}])assert.equal((await login(req(body))).status,401);
  assert.equal((await login(req({username:'secondary-test',password:'secondary-test-secret'},'','https://other.local'))).status,403);
