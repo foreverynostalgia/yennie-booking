@@ -1,0 +1,1 @@
+ALTER TABLE `students` ADD `academy` text DEFAULT '' NOT NULL;

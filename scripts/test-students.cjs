@@ -56,6 +56,13 @@ const cookieOf=r=>r.headers.get('set-cookie').split(';')[0];
  await expect(await change.POST(req({id:created.id,date:'2099-01-06',start:'14:00',end:'16:00'},b)),404);
  await expect(await change.POST(req({id:created.id,date:'2099-01-05',start:'16:00',end:'18:00'},a)),200);assert.equal(sql.prepare('SELECT status FROM bookings WHERE id=?').get(created.id).status,'change_pending');
  await expect(await cancel.POST(req({id:'legacy'},a)),200);assert.equal(sql.prepare('SELECT status FROM bookings WHERE id=?').get('legacy').status,'cancel_pending');
+ // Academy is optional, bounded, retained by old clients, and never included in student sessions.
+ await expect(await manage.POST(req({...one,id:first.id,academy:'산본 과학학원'},adminCookie)),200);
+ assert.equal(sql.prepare('SELECT academy FROM students WHERE id=?').get(first.id).academy,'산본 과학학원');
+ await expect(await manage.POST(req({...one,id:first.id},adminCookie)),200);assert.equal(sql.prepare('SELECT academy FROM students WHERE id=?').get(first.id).academy,'산본 과학학원');
+ await expect(await manage.POST(req({...one,id:first.id,academy:'x'.repeat(81)},adminCookie)),400);
+ assert.equal((await expect(await session.GET(req({},a)),200)).student.academy,undefined);
+ assert.equal(imports.parseStudentImport('닉네임,이름,학교,학년,연락처,소속 학원\n학원테스트,김학생,00중,중2,01012345678,산본 과학학원')[0].academy,'산본 과학학원');
  // Identity changes keep access to linked reservation history; a new PIN revokes existing sessions.
  await expect(await manage.POST(req({...one,id:first.id,name:'김새이름',phone:'01099998888',pin:''},adminCookie)),200);
  assert.equal((await expect(await lookup.POST(req({},a)),200)).length,2);

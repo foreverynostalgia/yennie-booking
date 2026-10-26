@@ -1,7 +1,7 @@
 import {env} from 'cloudflare:workers';
 import type {NextRequest,NextResponse} from 'next/server';
 import {db} from '@/lib/server';
-export type StudentRecord={id:string;nickname:string;name:string;school:string;grade:string;phone:string;pin_hash:string;pin_encrypted:string|null;active:number;created_at:string;updated_at:string};
+export type StudentRecord={id:string;nickname:string;name:string;school:string;academy:string;grade:string;phone:string;pin_hash:string;pin_encrypted:string|null;active:number;created_at:string;updated_at:string};
 const cookie='student_profile',lifetime=30*24*60*60;
 export const normalizeNickname=(value:unknown)=>String(value||'').normalize('NFKC').trim().toLowerCase();
 export const validNickname=(value:string)=>/^[가-힣a-z0-9_-]{2,24}$/.test(value);

@@ -176,6 +176,13 @@
       "when": 1793041532060,
       "tag": "0024_green_morbius",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
+      "when": 1793043557169,
+      "tag": "0025_omniscient_gauntlet",
+      "breakpoints": true
     }
   ]
 }
