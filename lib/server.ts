@@ -11,6 +11,19 @@ export function sameOrigin(req:NextRequest){const origin=req.headers.get('origin
 function secret(){return String((env as unknown as Record<string,string>).SESSION_SECRET||'')}
 export function adminUsername(){return String((env as unknown as Record<string,string>).ADMIN_USERNAME||'')}
 export function adminPassword(){return String((env as unknown as Record<string,string>).ADMIN_PASSWORD||'')}
+export function adminAccounts(){
+  const settings=env as unknown as Record<string,string>;
+  return [
+    {username:adminUsername(),password:adminPassword()},
+    {username:String(settings.ADMIN_SECONDARY_USERNAME||''),password:String(settings.ADMIN_SECONDARY_PASSWORD||'')},
+  ].filter(account=>account.username&&account.password);
+}
+export function matchesAdmin(account:{username:string;password:string},username:unknown,password:unknown){
+  if(typeof username!=='string'||typeof password!=='string')return false;
+  let mismatch=account.password.length^password.length;
+  for(let i=0;i<account.password.length;i++)mismatch|=account.password.charCodeAt(i)^(password.charCodeAt(i)||0);
+  return account.username===username&&mismatch===0;
+}
 async function sig(value:string){const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(secret()),{name:'HMAC',hash:'SHA-256'},false,['sign']);return Array.from(new Uint8Array(await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(value)))).map(x=>x.toString(16).padStart(2,'0')).join('')}
 export async function admin(req:NextRequest){if(!secret()||!adminPassword())return false;const token=req.cookies.get('admin_session')?.value||'';const [expiry,mac]=token.split('.');return !!expiry&&Number(expiry)>Date.now()&&mac===await sig(expiry)}
 export async function loginCookie(){const expiry=String(Date.now()+12*60*60*1000);return `${expiry}.${await sig(expiry)}`}

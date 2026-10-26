@@ -1,3 +1,12 @@
 import { NextRequest } from 'next/server';
-import {adminPassword,adminUsername,fail,json,loginCookie,sameOrigin} from '@/lib/server';
-export async function POST(req:NextRequest){if(!sameOrigin(req))return fail('요청을 확인할 수 없습니다.',403);const configured=adminPassword();if(!configured)return fail('관리자 설정이 완료되지 않았습니다.',503);const {username,password}=await req.json() as any;if(username!==adminUsername())return fail('아이디 또는 아이디 또는 비밀번호가 올바르지 않습니다.',401);if(typeof password!=='string'||password.length!==configured.length)return fail('아이디 또는 비밀번호가 올바르지 않습니다.',401);let mismatch=0;for(let i=0;i<configured.length;i++)mismatch|=configured.charCodeAt(i)^password.charCodeAt(i);if(mismatch)return fail('아이디 또는 비밀번호가 올바르지 않습니다.',401);const res=json({ok:true});res.cookies.set('admin_session',await loginCookie(),{httpOnly:true,secure:true,sameSite:'strict',path:'/',maxAge:43200});return res}
+import {adminAccounts,matchesAdmin,fail,json,loginCookie,sameOrigin} from '@/lib/server';
+export async function POST(req:NextRequest){
+  if(!sameOrigin(req))return fail('요청을 확인할 수 없습니다.',403);
+  const accounts=adminAccounts();
+  if(!accounts.length)return fail('관리자 설정이 완료되지 않았습니다.',503);
+  const body=await req.json().catch(()=>null);
+  if(!body||!accounts.some(account=>matchesAdmin(account,body.username,body.password)))return fail('아이디 또는 비밀번호가 올바르지 않습니다.',401);
+  const res=json({ok:true});
+  res.cookies.set('admin_session',await loginCookie(),{httpOnly:true,secure:true,sameSite:'strict',path:'/',maxAge:43200});
+  return res;
+}
