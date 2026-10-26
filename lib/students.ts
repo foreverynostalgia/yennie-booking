@@ -5,13 +5,13 @@ export type StudentRecord={id:string;nickname:string;name:string;school:string;g
 const cookie='student_profile',lifetime=30*24*60*60;
 export const normalizeNickname=(value:unknown)=>String(value||'').normalize('NFKC').trim().toLowerCase();
 export const validNickname=(value:string)=>/^[가-힣a-z0-9_-]{2,24}$/.test(value);
-export const generatePin=()=>`YE${String(crypto.getRandomValues(new Uint32Array(1))[0]%100).padStart(2,'0')}`;
+export const generatePin=()=>`YE${String(crypto.getRandomValues(new Uint32Array(1))[0]%10000).padStart(4,'0')}`;
 const hex=(bytes:ArrayBuffer)=>Array.from(new Uint8Array(bytes)).map(x=>x.toString(16).padStart(2,'0')).join('');
 export async function pinHash(pin:string,salt=crypto.randomUUID()){
  const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(pin),'PBKDF2',false,['deriveBits']);
  return salt+':'+hex(await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt:new TextEncoder().encode(salt),iterations:100000},key,256));
 }
-export async function verifyPin(pin:unknown,stored:string){if(typeof pin!=='string')return false;pin=pin.trim().toUpperCase();if(!/^(YE\d{2}|\d{6})$/.test(pin as string))return false;const calculated=await pinHash(pin as string,stored.split(':')[0]);if(calculated.length!==stored.length)return false;let difference=0;for(let i=0;i<stored.length;i++)difference|=stored.charCodeAt(i)^calculated.charCodeAt(i);return difference===0}
+export async function verifyPin(pin:unknown,stored:string){if(typeof pin!=='string')return false;pin=pin.trim().toUpperCase();if(!/^(YE\d{4}|\d{6})$/.test(pin as string))return false;const calculated=await pinHash(pin as string,stored.split(':')[0]);if(calculated.length!==stored.length)return false;let difference=0;for(let i=0;i<stored.length;i++)difference|=stored.charCodeAt(i)^calculated.charCodeAt(i);return difference===0}
 async function signature(s:StudentRecord,expiry:string){const secret=String((env as unknown as Record<string,string>).SESSION_SECRET||'');if(!secret)throw new Error('학생 접속 설정이 필요합니다.');const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);return hex(await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(JSON.stringify(['student-profile',s.id,s.pin_hash,expiry]))))}
 export async function getStudentSession(req:NextRequest){
  const [id,expiry,mac,...extra]=(req.cookies.get(cookie)?.value||'').split('.');

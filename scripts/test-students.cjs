@@ -26,10 +26,10 @@ const cookieOf=r=>r.headers.get('set-cookie').split(';')[0];
 (async()=>{
  const adminCookie='admin_session='+await load(root+'/lib/server.ts').loginCookie();
  await expect(await manage.GET(req({})),401);await expect(await manage.POST(req(one)),401);
- const saved=await expect(await manage.POST(req({students:[one,two]},adminCookie)),200);assert.equal(saved.saved,2);for(const item of saved.credentials)assert.match(item.pin,/^YE\d{2}$/);one.pin=saved.credentials[0].pin;two.pin=saved.credentials[1].pin;
- assert.ok(await studentLib.verifyPin('ye07',await studentLib.pinHash('YE07')));assert.ok(await studentLib.verifyPin('012345',await studentLib.pinHash('012345')));assert.equal(await studentLib.verifyPin('YE123',await studentLib.pinHash('YE12')),false);
+ const saved=await expect(await manage.POST(req({students:[one,two]},adminCookie)),200);assert.equal(saved.saved,2);for(const item of saved.credentials)assert.match(item.pin,/^YE\d{4}$/);one.pin=saved.credentials[0].pin;two.pin=saved.credentials[1].pin;
+ assert.ok(await studentLib.verifyPin('ye0007',await studentLib.pinHash('YE0007')));assert.ok(await studentLib.verifyPin('012345',await studentLib.pinHash('012345')));assert.equal(await studentLib.verifyPin('YE12',await studentLib.pinHash('YE0012')),false);
  const first=sql.prepare('SELECT * FROM students WHERE nickname=?').get(one.nickname);assert.notEqual(first.pin_hash,one.pin);assert.ok(!first.pin_hash.includes(one.pin));assert.equal(sql.prepare('SELECT student_id FROM bookings WHERE id=?').get('legacy').student_id,first.id);
- const preserved=await expect(await manage.POST(req({...one,id:first.id,pin:'YE99'},adminCookie)),200);assert.deepEqual(preserved.credentials,[]);assert.equal(sql.prepare('SELECT pin_hash FROM students WHERE id=?').get(first.id).pin_hash,first.pin_hash);
+ const preserved=await expect(await manage.POST(req({...one,id:first.id,pin:'YE9999'},adminCookie)),200);assert.deepEqual(preserved.credentials,[]);assert.equal(sql.prepare('SELECT pin_hash FROM students WHERE id=?').get(first.id).pin_hash,first.pin_hash);
  const list=await expect(await manage.GET(req({},adminCookie)),200);assert.ok(list.students.every(s=>!('pin_hash' in s)&&!('pin' in s)));
  await expect(await manage.POST(req({...two,nickname:one.nickname},adminCookie)),409);
  await expect(await manage.POST(req({students:[{...one,nickname:'new01',phone:'01033334444'},{...two,nickname:'x'}]},adminCookie)),400);assert.equal(sql.prepare('SELECT COUNT(*) n FROM students').get().n,2);
@@ -52,7 +52,7 @@ const cookieOf=r=>r.headers.get('set-cookie').split(';')[0];
  // Identity changes keep access to linked reservation history; a new PIN revokes existing sessions.
  await expect(await manage.POST(req({...one,id:first.id,name:'김새이름',phone:'01099998888',pin:''},adminCookie)),200);
  assert.equal((await expect(await lookup.POST(req({},a)),200)).length,2);
- const reset=await expect(await manage.POST(req({...one,id:first.id,resetPin:true},adminCookie)),200);assert.match(reset.credentials[0].pin,/^YE\d{2}$/);assert.notEqual(reset.credentials[0].pin,one.pin);assert.equal((await expect(await session.GET(req({},a)),200)).student,null);
+ const reset=await expect(await manage.POST(req({...one,id:first.id,resetPin:true},adminCookie)),200);assert.match(reset.credentials[0].pin,/^YE\d{4}$/);assert.notEqual(reset.credentials[0].pin,one.pin);assert.equal((await expect(await session.GET(req({},a)),200)).student,null);
  await expect(await manage.POST(req({...one,id:first.id,pin:'',active:false},adminCookie)),200);
  await expect(await session.POST(req({nickname:one.nickname,pin:reset.credentials[0].pin})),401);
  sql.prepare('DELETE FROM student_login_attempts').run();for(let i=0;i<5;i++)await expect(await session.POST(req({nickname:'unknown',pin:'000000'})),401);await expect(await session.POST(req({nickname:'unknown',pin:'000000'})),429);

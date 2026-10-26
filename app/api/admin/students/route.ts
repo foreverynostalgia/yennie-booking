@@ -17,7 +17,7 @@ export async function POST(req:NextRequest){
   if(id&&!old)return fail('학생을 찾을 수 없습니다.',404);
   if(await db().prepare('SELECT id FROM students WHERE (nickname=? OR (name=? AND phone=?)) AND id<>?').bind(nickname,name,p,id).first())return fail(`${i+1}행: 이미 등록된 닉네임 또는 학생입니다. 기존 학생을 수정해 주세요.`,409);
   let pin=!old||a.resetPin===true?generatePin():'';
-  if(old&&pin&&await verifyPin(pin,old.pin_hash))pin=`YE${String((Number(pin.slice(2))+1)%100).padStart(2,'0')}`;
+  if(old&&pin&&await verifyPin(pin,old.pin_hash))pin=`YE${String((Number(pin.slice(2))+1)%10000).padStart(4,'0')}`;
   rows.push({id:id||crypto.randomUUID(),nickname,name,school,grade,phone:p,active:a.active===false||a.active===0?0:1,pin,pin_hash:pin?await pinHash(pin):old!.pin_hash,old});
  }
  const now=new Date().toISOString(),statements=[];
