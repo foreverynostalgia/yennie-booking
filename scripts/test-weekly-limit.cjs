@@ -6,7 +6,7 @@ const sql=new DatabaseSync(':memory:');
 for(const f of fs.readdirSync(root+'/drizzle').filter(x=>x.endsWith('.sql')).sort())sql.exec(fs.readFileSync(root+'/drizzle/'+f,'utf8'));
 const env={ADMIN_PASSWORD:'test-only-admin',SESSION_SECRET:'test-only-secret',DB:{prepare(query){let args=[];return {bind(...values){args=values;return this},async all(){return {results:sql.prepare(query).all(...args)}},async first(){return sql.prepare(query).get(...args)||null},async run(){return {meta:{changes:Number(sql.prepare(query).run(...args).changes)}}}}}}};
 const queued=[];const stubs={'cloudflare:workers':{env,waitUntil(){}},'@/lib/google-calendar':{queueGoogleCalendarSync:async ids=>queued.push(...ids)},'@/lib/admin-push':{notifyAdminPush:async()=>{}},'@/lib/alimtalk':{sendReservationAlimtalk:async()=> 'unconfigured'}};
-const cache={};function load(file){if(stubs[file])return stubs[file];if(file==='next/server')return require(root+'/node_modules/next/server');const full=file.startsWith('@/')?root+'/'+file.slice(2)+'.ts':file; if(cache[full])return cache[full].exports;const mod={exports:{}};cache[full]=mod;new Function('require','exports','module',ts.transpileModule(fs.readFileSync(full,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(load,mod.exports,mod);return mod.exports}
+const cache={};function load(file){if(stubs[file])return stubs[file];if(file==='next/server')return require(root+'/node_modules/next/server');const full=file.startsWith('@/')?root+'/'+file.slice(2)+'.ts':file; if(cache[full])return cache[full].exports;const mod={exports:{}};cache[full]=mod;new Function('require','exports','module',ts.transpileModule(fs.readFileSync(full,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(id=>load(id.startsWith('.')?path.resolve(path.dirname(full),id)+(path.extname(id)?'':'.ts'):id),mod.exports,mod);return mod.exports}
 const {NextRequest}=require(root+'/node_modules/next/server');
 function req(body,cookie='',origin='https://test.local'){return new NextRequest('https://test.local/api/test',{method:'POST',headers:{origin,'content-type':'application/json',cookie},body:JSON.stringify(body)})}
 
@@ -36,7 +36,7 @@ async function expect(response,status){assert.equal(response.status,status,await
  await expect(await admin.POST(req({...base,date:'2099-01-08',overrideWeeklyLimit:true},cookie)),409);
  sql.prepare('UPDATE courses SET capacity=1 WHERE id=?').run('course');
  await expect(await admin.POST(req({...base,name:'다른학생',overrideWeeklyLimit:true},cookie)),409); // full
- await expect(await admin.POST(req({...base,date:'2099-01-08',start:'22:00',end:'24:00',overrideWeeklyLimit:true},cookie)),400); // invalid slot
+ await expect(await admin.POST(req({...base,date:'2099-01-08',start:'24:00',end:'25:00',overrideWeeklyLimit:true},cookie)),400); // invalid slot
  await expect(await student(req({...base,date:'2099-01-12'})),201); // following week
  const settings={title:'새 과학',capacity:10,weeklyLimit:2,targetGrades:['중2'],startDate:'2099-01-01',endDate:'2099-02-28',schedules,color:'#8bc9f0'};
  const created=await expect(await courses.POST(req(settings,cookie)),200);
