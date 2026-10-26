@@ -134,6 +134,13 @@
       "when": 1793005392013,
       "tag": "0018_motionless_meteorite",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1793017381161,
+      "tag": "0019_calm_polaris",
+      "breakpoints": true
     }
   ]
 }

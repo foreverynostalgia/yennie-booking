@@ -40,6 +40,7 @@ function routeFiles(dir){return fs.readdirSync(dir,{withFileTypes:true}).flatMap
  const data=load(root+'/app/api/admin/data/route.ts');const limited=await data.GET(request('/api/admin/data','GET',viewer));assert.deepEqual(await limited.json(),{role:'viewer',courses:[],bookings:[],alimtalkConfigured:false});
  const full=await data.GET(request('/api/admin/data','GET',owner));assert.equal(full.status,200);assert.equal((await full.json()).role,'owner');
  const students=load(root+'/app/api/admin/students/route.ts');const saved=await students.POST(request('/api/admin/students','POST',owner,{nickname:'권한테스트',name:'김학생',school:'00중',grade:'중2',phone:'01012345678'}));assert.equal(saved.status,200);
+ const pinEndpoint=load(root+'/app/api/admin/students/pin/route.ts');assert.equal((await pinEndpoint.GET(request('/api/admin/students/pin?id=any','GET',viewer))).status,403);
  const list=await students.GET(request('/api/admin/students','GET',viewer));const records=(await list.json()).students;assert.equal(records.length,1);assert.equal(records[0].name,'김학생');assert.ok(!('pin_hash' in records[0]));
  // Read-only rendering contains filters and list, and no enrollment/import/PIN actions.
  const React=require(root+'/node_modules/react'),{renderToStaticMarkup}=require(root+'/node_modules/react-dom/server');stubs['@/hooks/use-live-refresh']={useLiveRefresh(){},announceBookingChange(){}};
@@ -51,7 +52,7 @@ function routeFiles(dir){return fs.readdirSync(dir,{withFileTypes:true}).flatMap
  assert.ok(viewerHtml.includes('조회 전용 메뉴'));assert.ok(viewerHtml.includes('예약 캘린더'));assert.ok(viewerHtml.includes('학생 정보 조회'));
  for(const label of ['전체 예약','승인 요청','수업 관리','예약 차단','학생 등록','예약 추가','알림 설정'])assert.ok(!viewerHtml.includes(label),label+' must not be in viewer markup');
  const directory=load(root+'/app/admin/viewer/student-directory.tsx').default;
- const directoryHtml=renderToStaticMarkup(React.createElement(directory));assert.ok(directoryHtml.includes('학생 정보 조회'));assert.ok(!directoryHtml.includes('type="file"'));assert.ok(!directoryHtml.includes('학생 등록'));assert.ok(!directoryHtml.includes('PIN 재발급'));
+ const directoryHtml=renderToStaticMarkup(React.createElement(directory));assert.ok(directoryHtml.includes('학생 정보 조회'));assert.ok(!directoryHtml.includes('type="file"'));assert.ok(!directoryHtml.includes('학생 등록'));assert.ok(!directoryHtml.includes('PIN 재발급'));assert.ok(!directoryHtml.includes('PIN 확인'));
  // Server route guard redirects restricted tabs before any owner UI is returned.
  let currentToken=viewer.slice('admin_session='.length);
  stubs['next/headers']={cookies:async()=>({get:()=>currentToken?{value:currentToken}:undefined})};

@@ -1,3 +1,4 @@
+import {encryptStudentPin} from '@/lib/student-pin';
 import {NextRequest} from 'next/server';
 import {canViewAdmin,db,fail,json,phone,protectedMutation} from '@/lib/server';
 import {generatePin,normalizeNickname,pinHash,verifyPin,validNickname,type StudentRecord} from '@/lib/students';
@@ -18,11 +19,12 @@ export async function POST(req:NextRequest){
   if(await db().prepare('SELECT id FROM students WHERE (nickname=? OR (name=? AND phone=?)) AND id<>?').bind(nickname,name,p,id).first())return fail(`${i+1}행: 이미 등록된 닉네임 또는 학생입니다. 기존 학생을 수정해 주세요.`,409);
   let pin=!old||a.resetPin===true?generatePin():'';
   if(old&&pin&&await verifyPin(pin,old.pin_hash))pin=`YE${String((Number(pin.slice(2))+1)%10000).padStart(4,'0')}`;
-  rows.push({id:id||crypto.randomUUID(),nickname,name,school,grade,phone:p,active:a.active===false||a.active===0?0:1,pin,pin_hash:pin?await pinHash(pin):old!.pin_hash,old});
+  const studentId=id||crypto.randomUUID();
+  rows.push({id:studentId,nickname,name,school,grade,phone:p,active:a.active===false||a.active===0?0:1,pin,pin_hash:pin?await pinHash(pin):old!.pin_hash,pin_encrypted:pin?await encryptStudentPin(pin,studentId):old?.pin_encrypted||null,old});
  }
  const now=new Date().toISOString(),statements=[];
  for(const r of rows){
-  statements.push(db().prepare(`INSERT INTO students(id,nickname,name,school,grade,phone,pin_hash,active,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET nickname=excluded.nickname,name=excluded.name,school=excluded.school,grade=excluded.grade,phone=excluded.phone,pin_hash=excluded.pin_hash,active=excluded.active,updated_at=excluded.updated_at`).bind(r.id,r.nickname,r.name,r.school,r.grade,r.phone,r.pin_hash,r.active,now,now));
+  statements.push(db().prepare(`INSERT INTO students(id,nickname,name,school,grade,phone,pin_hash,pin_encrypted,active,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET nickname=excluded.nickname,name=excluded.name,school=excluded.school,grade=excluded.grade,phone=excluded.phone,pin_hash=excluded.pin_hash,pin_encrypted=excluded.pin_encrypted,active=excluded.active,updated_at=excluded.updated_at`).bind(r.id,r.nickname,r.name,r.school,r.grade,r.phone,r.pin_hash,r.pin_encrypted,r.active,now,now));
   // Link matching legacy reservations without changing their history or creating duplicates.
   statements.push(db().prepare('UPDATE bookings SET student_id=? WHERE student_id IS NULL AND name=? AND phone=?').bind(r.id,r.name,r.phone));
  }

@@ -15,6 +15,8 @@ function req(body,cookie='',origin='https://test.local'){return new NextRequest(
 
 const manage=load(root+'/app/api/admin/students/route.ts'),session=load(root+'/app/api/student/session/route.ts'),book=load(root+'/app/api/bookings/route.ts'),lookup=load(root+'/app/api/lookup/route.ts'),cancel=load(root+'/app/api/cancel/route.ts'),change=load(root+'/app/api/change/route.ts');
 const studentLib=load(root+'/lib/students.ts');
+const reveal=load(root+'/app/api/admin/students/pin/route.ts').GET;
+const pinRequest=(id,cookie='')=>new NextRequest('https://test.local/api/admin/students/pin?id='+encodeURIComponent(id),{headers:{cookie}});
 const imports=load(root+'/lib/student-import.ts');
 const one={nickname:'호랑이12',name:'김학생',school:'00중',grade:'중2',phone:'01012345678',pin:'012345'};
 const two={nickname:'토끼12',name:'이학생',school:'11중',grade:'중2',phone:'01022223333',pin:'654321'};
@@ -30,7 +32,12 @@ const cookieOf=r=>r.headers.get('set-cookie').split(';')[0];
  assert.ok(await studentLib.verifyPin('ye0007',await studentLib.pinHash('YE0007')));assert.ok(await studentLib.verifyPin('012345',await studentLib.pinHash('012345')));assert.equal(await studentLib.verifyPin('YE12',await studentLib.pinHash('YE0012')),false);
  const first=sql.prepare('SELECT * FROM students WHERE nickname=?').get(one.nickname);assert.notEqual(first.pin_hash,one.pin);assert.ok(!first.pin_hash.includes(one.pin));assert.equal(sql.prepare('SELECT student_id FROM bookings WHERE id=?').get('legacy').student_id,first.id);
  const preserved=await expect(await manage.POST(req({...one,id:first.id,pin:'YE9999'},adminCookie)),200);assert.deepEqual(preserved.credentials,[]);assert.equal(sql.prepare('SELECT pin_hash FROM students WHERE id=?').get(first.id).pin_hash,first.pin_hash);
- const list=await expect(await manage.GET(req({},adminCookie)),200);assert.ok(list.students.every(s=>!('pin_hash' in s)&&!('pin' in s)));
+ const encrypted=sql.prepare('SELECT pin_encrypted FROM students WHERE id=?').get(first.id).pin_encrypted;assert.ok(encrypted&&!encrypted.includes(one.pin));
+ await expect(await reveal(pinRequest(first.id)),403);
+ const pinResponse=await reveal(pinRequest(first.id,adminCookie));assert.match(pinResponse.headers.get('Cache-Control'),/no-store/);assert.equal((await expect(pinResponse,200)).pin,one.pin);
+ const savedCipher=encrypted;sql.prepare('UPDATE students SET pin_encrypted=NULL WHERE id=?').run(first.id);assert.equal((await expect(await reveal(pinRequest(first.id,adminCookie)),200)).pin,null);sql.prepare('UPDATE students SET pin_encrypted=? WHERE id=?').run(savedCipher,first.id);
+ await expect(await reveal(pinRequest('unknown',adminCookie)),404);
+ const list=await expect(await manage.GET(req({},adminCookie)),200);assert.ok(list.students.every(s=>!('pin_hash' in s)&&!('pin' in s)&&!('pin_encrypted' in s)));
  await expect(await manage.POST(req({...two,nickname:one.nickname},adminCookie)),409);
  await expect(await manage.POST(req({students:[{...one,nickname:'new01',phone:'01033334444'},{...two,nickname:'x'}]},adminCookie)),400);assert.equal(sql.prepare('SELECT COUNT(*) n FROM students').get().n,2);
  await expect(await session.POST(req({nickname:one.nickname,pin:'000000'})),401);
@@ -52,7 +59,7 @@ const cookieOf=r=>r.headers.get('set-cookie').split(';')[0];
  // Identity changes keep access to linked reservation history; a new PIN revokes existing sessions.
  await expect(await manage.POST(req({...one,id:first.id,name:'김새이름',phone:'01099998888',pin:''},adminCookie)),200);
  assert.equal((await expect(await lookup.POST(req({},a)),200)).length,2);
- const reset=await expect(await manage.POST(req({...one,id:first.id,resetPin:true},adminCookie)),200);assert.match(reset.credentials[0].pin,/^YE\d{4}$/);assert.notEqual(reset.credentials[0].pin,one.pin);assert.equal((await expect(await session.GET(req({},a)),200)).student,null);
+ const reset=await expect(await manage.POST(req({...one,id:first.id,resetPin:true},adminCookie)),200);assert.match(reset.credentials[0].pin,/^YE\d{4}$/);assert.notEqual(reset.credentials[0].pin,one.pin);assert.equal((await expect(await session.GET(req({},a)),200)).student,null);assert.equal((await expect(await reveal(pinRequest(first.id,adminCookie)),200)).pin,reset.credentials[0].pin);
  await expect(await manage.POST(req({...one,id:first.id,pin:'',active:false},adminCookie)),200);
  await expect(await session.POST(req({nickname:one.nickname,pin:reset.credentials[0].pin})),401);
  sql.prepare('DELETE FROM student_login_attempts').run();for(let i=0;i<5;i++)await expect(await session.POST(req({nickname:'unknown',pin:'000000'})),401);await expect(await session.POST(req({nickname:'unknown',pin:'000000'})),429);
