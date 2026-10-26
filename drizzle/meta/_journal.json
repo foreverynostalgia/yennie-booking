@@ -169,6 +169,13 @@
       "when": 1793041235751,
       "tag": "0023_smooth_cobalt_man",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1793041532060,
+      "tag": "0024_green_morbius",
+      "breakpoints": true
     }
   ]
 }
