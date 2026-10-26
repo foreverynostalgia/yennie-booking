@@ -1,0 +1,11 @@
+'use client';
+import {useId} from 'react';
+import {NativeSelect} from '@/components/ui/native-select';
+export type TimeOption={start:string;end:string;occupied:number;blocked:boolean};
+export default function BookingTimePicker({options,value,onChange,capacity,disabled=false,label='시작 시간'}:{options:TimeOption[];value:string;onChange:(value:string)=>void;capacity:number;disabled?:boolean;label?:string}){
+ const id=useId(),selected=options.find(option=>`${option.start}|${option.end}`===value);
+ const full=!!selected&&selected.occupied>=capacity,blocked=!!selected?.blocked;
+ const minutes=(time:string)=>Number(time.slice(0,2))*60+Number(time.slice(3));
+ const duration=selected?minutes(selected.end)-minutes(selected.start):0;
+ return <div className="compact-time-picker"><div className="time-selection-pair"><label className="compact-time-label" htmlFor={id}><span>{label}</span><NativeSelect id={id} value={selected?value:''} disabled={disabled||!options.length} onChange={event=>{const option=options.find(item=>`${item.start}|${item.end}`===event.target.value);if(!event.target.value){onChange('');return}if(option&&!option.blocked&&option.occupied<capacity)onChange(event.target.value)}}><option value="">시간 선택</option>{options.map(option=><option key={`${option.start}|${option.end}`} value={`${option.start}|${option.end}`} disabled={option.blocked||option.occupied>=capacity}>{option.start}{option.blocked?' · 예약 불가':option.occupied>=capacity?' · 마감':''}</option>)}</NativeSelect><small>30분 단위로 선택</small></label><div className={`selected-time-capacity ${full||blocked?'unavailable':''}`} role="status" aria-live="polite" aria-atomic="true"><span>선택 시간 정원</span>{selected?<><strong>{selected.occupied}<small> / {capacity}명</small></strong><b>{blocked?'예약 불가':full?'마감':`잔여 ${Math.max(0,capacity-selected.occupied)}명`}</b></>:<><strong>{capacity}<small>명</small></strong><small>시간 선택 후 확인</small></>}</div></div>{selected&&<p className="selected-time-range">예약 시간 <strong>{selected.start}–{selected.end}</strong><span>{Math.floor(duration/60)?`${Math.floor(duration/60)}시간`:''}{duration%60?` ${duration%60}분`:''}</span></p>}{!options.length&&<p className="empty compact-time-empty">이 날짜에는 선택 가능한 시간이 없습니다.</p>}</div>;
+}
