@@ -3,7 +3,7 @@ self.addEventListener('push',event=>{
  try{if(event.data)message={...message,...event.data.json()}}catch{}
  const url=new URL(message.url||'/admin',self.location.origin);
  if(url.origin!==self.location.origin)url.pathname='/admin';
- event.waitUntil(self.registration.showNotification(message.title,{body:message.body,icon:'/app-icon-192.png',badge:'/app-icon-192.png',tag:message.tag||undefined,data:{url:url.pathname+url.search}}));
+ event.waitUntil(self.registration.showNotification(message.title,{body:message.body,icon:'/app-icon-192-ye-sci.png',badge:'/app-icon-192-ye-sci.png',tag:message.tag||undefined,data:{url:url.pathname+url.search}}));
 });
 self.addEventListener('notificationclick',event=>{
  event.notification.close();const path=event.notification.data?.url||'/admin';

@@ -74,6 +74,7 @@ export default function Admin(){
   useEffect(()=>{if(!edit&&!copiedCourse&&!title)setColor(courseColors[courses.length%courseColors.length])},[courses.length,edit,copiedCourse,title]);
   useLiveRefresh(load,authorized&&!busy);
   useEffect(()=>{const tab=new URLSearchParams(window.location.search).get('tab');if(tab==='students'||tab==='calendar'||tab==='bookings'||tab==='requests'||tab==='settings')setView(tab)},[]);
+  useEffect(()=>{if(authorized)document.querySelector('.admin-tabs .active')?.scrollIntoView({behavior:'smooth',block:'nearest',inline:'nearest'})},[view,authorized]);
   async function run(f:()=>Promise<void>){setBusy(true);setMessage('');try{await f();announceBookingChange()}catch(e){setMessage(e instanceof Error?e.message:'처리하지 못했습니다.')}finally{setBusy(false)}}
   async function cancelSelectedBookings(ids:string[]):Promise<BulkCancelResult>{
     setBusy(true);setMessage('');
@@ -103,7 +104,7 @@ export default function Admin(){
     await load();
   });
   return <main className="shell admin-shell">
-    <header className="top"><div className="logo"><span className="logo-mark">S</span><div><strong>옌쌤 과학</strong><small>예약 관리자</small></div></div><a className="quiet-link" href="/">학생 페이지</a></header>
+    <header className="top"><div className="logo"><img className="logo-mark" src="/brand-icon.svg" alt="YE SCI" width={44} height={44}/><div><strong>옌쌤 과학</strong><small>예약 관리자</small></div></div><a className="quiet-link" href="/">학생 페이지</a></header>
     {!authorized||role!=='owner'?<section className="panel login"><p className="eyebrow">ADMIN</p><h1>관리자 로그인</h1><label>관리자 아이디<Input value={username} onChange={e=>setUsername(e.target.value)} autoComplete="username"/></label><label>관리자 비밀번호<Input type="password" value={password} onChange={e=>setPassword(e.target.value)} autoComplete="current-password" onKeyDown={e=>e.key==='Enter'&&signIn()}/></label><Button className="main-button" disabled={busy} onClick={signIn}>로그인</Button>{message&&<p className="notice error" role="alert">{message}</p>}</section>:<>
       <section className="admin-heading"><div><p className="eyebrow">옌쌤 과학 · 관리자</p><h1>예약 관리</h1><p>{readOnly?'캘린더 조회와 학생 관리 권한이 있는 계정입니다.':'예약과 취소 요청을 한곳에서 확인하세요.'}</p></div><Button variant="outline" onClick={()=>run(async()=>{authRevision.current++;await call('/api/admin/logout','POST');setAuthorized(false);setRole(null);setCourses([]);setBookings([]);setPassword('')})}>로그아웃</Button></section>
       {!readOnly&&<div className="admin-overview" aria-label="예약 현황"><div className="overview-card"><span>예약 확정</span><strong>{confirmed}<small>건</small></strong></div><div className="overview-card attention"><span>승인 대기</span><strong>{pending.length}<small>건</small></strong></div><div className="overview-card"><span>등록된 수업</span><strong>{courses.filter(x=>x.active).length}<small>개</small></strong></div></div>}
