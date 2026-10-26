@@ -1,3 +1,4 @@
+import {prerequisiteError,prerequisiteMessage} from '@/lib/course-prerequisite';
 import {validAdminBookingSchedule} from '@/lib/admin-booking-schedule';
 import {blockAppliesSql} from '@/lib/reservation-blocks';
 import {queueGoogleCalendarSync} from '@/lib/google-calendar';
@@ -10,7 +11,7 @@ import {peakOccupancySql} from '@/lib/booking-slots';
 import {validDate} from '@/lib/course-period';
 export async function POST(req:NextRequest){
  if(!await protectedMutation(req))return fail('관리자 로그인이 필요합니다.',401);
- try{const x=await req.clone().json() as Record<string,unknown>;const memo=String(x.memo||'').trim();if(memo.length>2000)return fail('메모는 2,000자 이내로 입력해 주세요.');return createBooking(req,memo,x.overrideWeeklyLimit===true,true)}catch{return fail('예약 정보를 확인해 주세요.')}
+ try{const x=await req.clone().json() as Record<string,unknown>;const memo=String(x.memo||'').trim();if(memo.length>2000)return fail('메모는 2,000자 이내로 입력해 주세요.');return createBooking(req,memo,x.overrideWeeklyLimit===true,true)}catch(e){if(prerequisiteError(e))return fail(prerequisiteMessage,409);return fail('예약 정보를 확인해 주세요.')}
 }
 export async function PATCH(req:NextRequest){
  if(!await protectedMutation(req))return fail('관리자 로그인이 필요합니다.',401);
@@ -45,5 +46,5 @@ export async function PATCH(req:NextRequest){
    .bind(id,courseId,date,start,end,name,school,grade,p,week.start,week.end,memo,overrideWeeklyLimit?1:0,studentId,old.status,old.attendance,old.course_id,old.date,old.name,old.school,old.grade,old.phone,old.time_start,old.time_end,old.requested_date,old.requested_start,old.requested_end,old.admin_memo||'').run();
   if(!r.meta.changes)return fail('예약이 변경되었거나 해당 시간이 차단·마감되었습니다. 중복 예약과 주간 한도를 확인해 주세요.',409);
   await queueGoogleCalendarSync([id]);return json({ok:true,accessCode:old.access_code});
- }catch(e){console.error('관리자 예약 수정 실패',e);return fail('예약을 수정하지 못했습니다. 다시 시도해 주세요.',503)}
+ }catch(e){if(prerequisiteError(e))return fail(prerequisiteMessage,409);console.error('관리자 예약 수정 실패',e);return fail('예약을 수정하지 못했습니다. 다시 시도해 주세요.',503)}
 }

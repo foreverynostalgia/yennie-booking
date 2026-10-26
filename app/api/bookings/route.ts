@@ -1,3 +1,4 @@
+import {prerequisiteError,prerequisiteMessage} from '@/lib/course-prerequisite';
 import {getStudentSession} from '@/lib/students';
 import {validAdminBookingSchedule} from '@/lib/admin-booking-schedule';
 import {blockAppliesSql} from '@/lib/reservation-blocks';
@@ -59,5 +60,5 @@ export async function createBooking(req:NextRequest,adminMemo='',overrideWeeklyL
   let notificationStatus='unknown';
   try{notificationStatus=await sendReservationAlimtalk(id)}catch{await db().prepare("UPDATE bookings SET notification_status='unknown',notification_error='발송 접수 여부 확인 필요' WHERE id=? AND notification_status IN ('pending','sending')").bind(id).run().catch(()=>{})}
   return json({id,accessCode:code,status:'confirmed',notificationStatus},201);
- }catch(e){console.error('예약 저장 실패',e);return fail('예약을 저장하지 못했습니다. 다시 시도해 주세요.',503)}
+ }catch(e){if(prerequisiteError(e))return fail(prerequisiteMessage,409);console.error('예약 저장 실패',e);return fail('예약을 저장하지 못했습니다. 다시 시도해 주세요.',503)}
 }
