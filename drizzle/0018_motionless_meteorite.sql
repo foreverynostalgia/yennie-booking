@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX `students_identity_unique` ON `students` (`name`,`phone`);
