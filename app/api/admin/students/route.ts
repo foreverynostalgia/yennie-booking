@@ -1,6 +1,6 @@
 import {NextRequest} from 'next/server';
 import {admin,db,fail,json,phone,protectedMutation} from '@/lib/server';
-import {generatePin,normalizeNickname,pinHash,validNickname,type StudentRecord} from '@/lib/students';
+import {generatePin,normalizeNickname,pinHash,verifyPin,validNickname,type StudentRecord} from '@/lib/students';
 export async function GET(req:NextRequest){if(!await admin(req))return fail('관리자 로그인이 필요합니다.',401);try{const r=await db().prepare('SELECT id,nickname,name,school,grade,phone,active,created_at,updated_at FROM students ORDER BY name,nickname').all();const response=json({students:r.results});response.headers.set('Cache-Control','no-store');return response}catch{return fail('학생 목록을 불러오지 못했습니다.',503)}}
 export async function POST(req:NextRequest){
  if(!await protectedMutation(req))return fail('관리자 로그인이 필요합니다.',401);
@@ -16,8 +16,8 @@ export async function POST(req:NextRequest){
   const old=id?await db().prepare('SELECT * FROM students WHERE id=?').bind(id).first<StudentRecord>():null;
   if(id&&!old)return fail('학생을 찾을 수 없습니다.',404);
   if(await db().prepare('SELECT id FROM students WHERE (nickname=? OR (name=? AND phone=?)) AND id<>?').bind(nickname,name,p,id).first())return fail(`${i+1}행: 이미 등록된 닉네임 또는 학생입니다. 기존 학생을 수정해 주세요.`,409);
-  const pin=a.resetPin===true?generatePin():String(a.pin||'').trim()||(!old?generatePin():'');
-  if(pin&&!/^\d{6}$/.test(pin))return fail(`${i+1}행: 예약 PIN은 숫자 6자리로 입력해 주세요.`);
+  let pin=!old||a.resetPin===true?generatePin():'';
+  if(old&&pin&&await verifyPin(pin,old.pin_hash))pin=`YE${String((Number(pin.slice(2))+1)%100).padStart(2,'0')}`;
   rows.push({id:id||crypto.randomUUID(),nickname,name,school,grade,phone:p,active:a.active===false||a.active===0?0:1,pin,pin_hash:pin?await pinHash(pin):old!.pin_hash,old});
  }
  const now=new Date().toISOString(),statements=[];
