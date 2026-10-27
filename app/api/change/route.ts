@@ -1,5 +1,5 @@
 import {prerequisiteError,prerequisiteMessage} from '@/lib/course-prerequisite';
-import {getStudentSession} from '@/lib/students';
+import {getReservationStudent as getStudentSession} from '@/lib/reservation-session';
 import {studentLookupAuthorized} from '@/lib/student-lookup';
 import {blockAppliesSql} from '@/lib/reservation-blocks';
 import {queueGoogleCalendarSync} from '@/lib/google-calendar';

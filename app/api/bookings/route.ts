@@ -1,5 +1,5 @@
 import {prerequisiteError,prerequisiteMessage} from '@/lib/course-prerequisite';
-import {getStudentSession} from '@/lib/students';
+import {getBookingStudent as getStudentSession} from '@/lib/reservation-session';
 import {validAdminBookingSchedule} from '@/lib/admin-booking-schedule';
 import {blockAppliesSql} from '@/lib/reservation-blocks';
 import {queueGoogleCalendarSync} from '@/lib/google-calendar';
@@ -21,7 +21,7 @@ export async function createBooking(req:NextRequest,adminMemo='',overrideWeeklyL
  try{
   const x=await req.json() as Record<string,unknown>;
   const student=adminSchedule?null:await getStudentSession(req);
-  if(x.studentSession===true&&!student)return fail('닉네임과 예약 PIN으로 다시 접속해 주세요.',401);
+  if(x.studentSession===true&&!student)return fail('닉네임으로 다시 접속해 주세요.',401);
   if(student)Object.assign(x,{name:student.name,school:student.school,grade:student.grade,phone:student.phone});
   let studentId=student?.id||null;
   const name=String(x.name||'').trim(),school=String(x.school||'').trim(),grade=String(x.grade||''),p=phone(String(x.phone||'')),date=String(x.date||''),courseId=String(x.courseId||''),start=String(x.start||''),end=String(x.end||'');

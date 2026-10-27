@@ -1,4 +1,4 @@
-import {getStudentSession} from '@/lib/students';
+import {getReservationStudent as getStudentSession} from '@/lib/reservation-session';
 import {NextRequest} from 'next/server';
 import {db,fail,json,sameOrigin} from '@/lib/server';
 import {lookupIdentity,setLookupSession} from '@/lib/student-lookup';
@@ -18,3 +18,6 @@ export async function POST(req:NextRequest){
   return await setLookupSession(json(r.results),req,identity.name,identity.phone);
  }catch{return fail('예약 내역을 조회하지 못했습니다.',503)}
 }
+
+// Verified reads use GET so background refresh does not consume credential-attempt limits.
+export async function GET(req:NextRequest){if(!await getStudentSession(req))return fail('PIN 또는 등록된 전화번호 뒤 네 자리로 인증해 주세요.',401);return POST(req)}
