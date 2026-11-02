@@ -183,6 +183,13 @@
       "when": 1793043557169,
       "tag": "0025_omniscient_gauntlet",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "6",
+      "when": 1793637390025,
+      "tag": "0026_luxuriant_mother_askani",
+      "breakpoints": true
     }
   ]
 }

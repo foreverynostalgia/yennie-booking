@@ -67,13 +67,13 @@ function routeFiles(dir){return fs.readdirSync(dir,{withFileTypes:true}).flatMap
  // Server route guard redirects restricted tabs before any owner UI is returned.
  let currentToken=viewer.slice('admin_session='.length);
  stubs['next/headers']={cookies:async()=>({get:()=>currentToken?{value:currentToken}:undefined})};
- stubs['next/navigation']={redirect:location=>{const e=new Error('redirect');e.location=location;throw e}};
+ stubs['next/navigation']={notFound:()=>{const e=new Error('not found');e.status=404;throw e},redirect:location=>{const e=new Error('redirect');e.location=location;throw e}};
  stubs[root+'/app/admin/full-admin']= {default:()=>React.createElement('div',null,'OWNER_ONLY_SCREEN')};
  const adminPage=load(root+'/app/admin/page.tsx').default,viewerPage=load(root+'/app/admin/viewer/page.tsx').default,plannerPage=load(root+'/app/admin/planner/page.tsx').default;
  for(const tab of ['courses','bookings','settings','blocks','requests','cancelled','past'])await assert.rejects(()=>adminPage({searchParams:Promise.resolve({tab})}),e=>e.location==='/admin/viewer');
  await assert.rejects(()=>adminPage({searchParams:Promise.resolve({tab:'students'})}),e=>e.location==='/admin/viewer?tab=students');
  assert.equal((await viewerPage()).type,viewerComponent);assert.ok(await plannerPage());
- currentToken='';await assert.rejects(()=>viewerPage(),e=>e.location==='/admin');await assert.rejects(()=>plannerPage(),e=>e.location==='/admin');
+ currentToken='';await assert.rejects(()=>adminPage({searchParams:Promise.resolve({})}),e=>e.status===404);await assert.rejects(()=>viewerPage(),e=>e.location==='/admin');await assert.rejects(()=>plannerPage(),e=>e.location==='/admin');
  currentToken=owner.slice('admin_session='.length);assert.equal(renderToStaticMarkup(await adminPage({searchParams:Promise.resolve({})})),'<div>OWNER_ONLY_SCREEN</div>');
  console.log(`PASS: student-manager calendar/planner read, student create/edit/import and PIN reveal/reset; ${denied} admin mutation methods denied; settings and full reservation data blocked; full owner control preserved; cookie role tamper and legacy sessions rejected; dedicated student-management UI and protected owner routes.`);
 })().catch(e=>{console.error(e);process.exitCode=1});

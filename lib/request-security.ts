@@ -6,11 +6,12 @@ export function securityHeaders(response:Response,request:Request){
  headers.set('Permissions-Policy','camera=(), microphone=(), geolocation=()');
  headers.set('Content-Security-Policy',"object-src 'none'; base-uri 'self'; form-action 'self'");
  if(new URL(request.url).protocol==='https:')headers.set('Strict-Transport-Security','max-age=31536000');
- if(path.startsWith('/api/')||path==='/admin'||path.startsWith('/admin/')||path==='/learning'||path==='/report'){
+ if(path.startsWith('/api/')||path==='/admin'||path.startsWith('/admin/')||path==='/learning'||path==='/report'||path==='/videos'){
   headers.set('Cache-Control','private, no-store');headers.set('Pragma','no-cache');headers.set('Referrer-Policy','no-referrer');headers.set('X-Robots-Tag','noindex, nofollow');
   headers.set('X-Frame-Options','DENY');
   headers.set('Content-Security-Policy',"object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'");
  }
+ if(path==='/videos')headers.set('Content-Security-Policy',"object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; frame-src https://www.youtube-nocookie.com");
  return new Response(response.body,{status:response.status,statusText:response.statusText,headers});
 }
 export async function guardRequest(request:Request,database:D1Database|undefined):Promise<Response|null>{
