@@ -1,8 +1,9 @@
+import {sortedStudents} from '@/lib/student-order';
 import {encryptStudentPin} from '@/lib/student-pin';
 import {NextRequest} from 'next/server';
 import {canViewAdmin,db,fail,json,phone,protectedStudentMutation} from '@/lib/server';
 import {generatePin,normalizeNickname,pinHash,verifyPin,validNickname,type StudentRecord} from '@/lib/students';
-export async function GET(req:NextRequest){if(!await canViewAdmin(req))return fail('관리자 로그인이 필요합니다.',401);try{const r=await db().prepare('SELECT id,nickname,name,school,academy,grade,phone,active,created_at,updated_at FROM students ORDER BY name,nickname').all();const response=json({students:r.results});response.headers.set('Cache-Control','no-store');return response}catch{return fail('학생 목록을 불러오지 못했습니다.',503)}}
+export async function GET(req:NextRequest){if(!await canViewAdmin(req))return fail('관리자 로그인이 필요합니다.',401);try{const r=await db().prepare('SELECT id,nickname,name,school,academy,grade,phone,active,created_at,updated_at FROM students ORDER BY name,nickname').all();const response=json({students:sortedStudents(r.results as any[])});response.headers.set('Cache-Control','no-store');return response}catch{return fail('학생 목록을 불러오지 못했습니다.',503)}}
 export async function POST(req:NextRequest){
  if(!await protectedStudentMutation(req))return fail('관리자 로그인이 필요합니다.',401);
  try{
@@ -39,6 +40,6 @@ export async function POST(req:NextRequest){
   statements.push(db().prepare('UPDATE bookings SET student_id=? WHERE student_id IS NULL AND name=? AND phone=?').bind(r.id,r.name,r.phone));
  }
  await db().batch(statements);
- const response=json({saved:rows.length,students:rows.map(r=>({id:r.id,nickname:r.nickname,name:r.name,school:r.school,academy:r.academy,grade:r.grade,phone:r.phone,active:r.active})),credentials:rows.filter(r=>r.pin).map(r=>({nickname:r.nickname,pin:r.pin})),linked:true});response.headers.set('Cache-Control','no-store');return response;
+ const response=json({saved:rows.length,students:sortedStudents(rows).map(r=>({id:r.id,nickname:r.nickname,name:r.name,school:r.school,academy:r.academy,grade:r.grade,phone:r.phone,active:r.active})),credentials:sortedStudents(rows).filter(r=>r.pin).map(r=>({nickname:r.nickname,pin:r.pin})),linked:true});response.headers.set('Cache-Control','no-store');return response;
  }catch(e){return fail('학생 정보를 저장하지 못했습니다. 중복 닉네임과 파일 내용을 확인해 주세요.',409)}
 }

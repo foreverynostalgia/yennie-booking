@@ -1,4 +1,5 @@
 'use client';
+import {sortedStudents} from '@/lib/student-order';
 import {attendanceText} from '@/lib/attendance';
 import {courseColor} from '@/lib/course-colors';
 import {useEffect,useMemo,useRef,useState} from 'react';
@@ -17,7 +18,7 @@ const scrollRef=useRef<HTMLDivElement>(null);useEffect(()=>{setMiniMonth(new Dat
 const start=mode==='week'?add(anchor,-((parse(anchor).getUTCDay()+6)%7)):anchor,days=mode==='day'?1:mode==='week'?7:customDays;const dates=useMemo(()=>Array.from({length:days},(_,i)=>add(start,i)),[start,days]);
 useEffect(()=>{let active=true;setLoading(true);setError('');fetch(`/api/admin/planner?start=${start}&days=${days}`).then(async r=>{const data:any=await r.json();if(!r.ok)throw new Error(data.error||'플래너를 불러오지 못했습니다.');return data as Booking[]}).then(data=>{if(active){setRows(data);setSelected(null)}}).catch(e=>{if(active)setError(e instanceof Error?e.message:'플래너를 불러오지 못했습니다.')}).finally(()=>{if(active)setLoading(false)});return()=>{active=false}},[start,days]);
 useEffect(()=>{if(!loading&&scrollRef.current)scrollRef.current.scrollTop=0},[loading,start,days]);
-const groups=useMemo(()=>{const map=new Map<string,Group>();for(const b of rows){const k=[b.date,b.start,b.end,b.course_id].join('|');let g=map.get(k);if(!g){g={key:k,date:b.date,start:b.start,end:b.end,title:b.title,color:courseColor(b.color,b.course_id),students:[]};map.set(k,g)}g.students.push(b)}return [...map.values()]},[rows]);
+const groups=useMemo(()=>{const map=new Map<string,Group>();for(const b of rows){const k=[b.date,b.start,b.end,b.course_id].join('|');let g=map.get(k);if(!g){g={key:k,date:b.date,start:b.start,end:b.end,title:b.title,color:courseColor(b.color,b.course_id),students:[]};map.set(k,g)}g.students.push(b)}return [...map.values()].map(group=>({...group,students:sortedStudents(group.students)}))},[rows]);
 useLiveRefresh(async()=>{const r=await fetch(`/api/admin/planner?start=${start}&days=${days}`,{cache:'no-store'});if(r.ok)setRows(await r.json() as Booking[])});
 useEffect(()=>{setSelected(current=>current?groups.find(g=>g.key===current.key)||null:null)},[groups]);
 const move=(n:number)=>setAnchor(add(anchor,n*(mode==='day'?1:mode==='week'?7:days)));
