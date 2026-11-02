@@ -197,6 +197,13 @@
       "when": 1793638194932,
       "tag": "0027_complete_shotgun",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "6",
+      "when": 1793639299583,
+      "tag": "0028_abandoned_wolverine",
+      "breakpoints": true
     }
   ]
 }
