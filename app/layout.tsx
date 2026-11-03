@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "YE SCI 학생 공간",
-  description: "답안 입력, 수업 예약, 배부된 복습 영상을 이용하는 학생 전용 공간입니다.",
+  description: "닉네임으로 수업을 예약하고 내 예약을 확인하는 학생 전용 공간입니다.",
   manifest: "/manifest.webmanifest?v=ye-sci",
   appleWebApp: {capable:true,title:"YE SCI",statusBarStyle:"default"},
   icons: {
