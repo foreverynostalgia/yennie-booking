@@ -8,7 +8,7 @@ const maxLifetime=30*24*60*60*1000;
 async function sign(scope:Scope,s:StudentRecord,expiry:string){
  const secret=String((env as unknown as Record<string,string>).SESSION_SECRET||'');if(!secret)throw Error('접속 설정을 확인해 주세요.');
  const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);
- return Array.from(new Uint8Array(await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(JSON.stringify(['reservation-scope-v1',scope,s.id,s.pin_hash,s.phone,expiry]))))).map(n=>n.toString(16).padStart(2,'0')).join('');
+ return Array.from(new Uint8Array(await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(JSON.stringify([scope==='reservation'?'reservation-pin-v2':'reservation-scope-v1',scope,s.id,s.pin_hash,s.phone,expiry]))))).map(n=>n.toString(16).padStart(2,'0')).join('');
 }
 async function read(req:NextRequest,scope:Scope){
  const [id,expiry,mac,...extra]=(req.cookies.get(names[scope])?.value||'').split('.');
