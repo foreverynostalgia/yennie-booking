@@ -14,7 +14,8 @@ export async function POST(req:NextRequest){
   const existing=await db().prepare('SELECT * FROM students WHERE id=? OR (name=? AND phone=?) LIMIT 1').bind(x.bookingStudentId||x.managerId,String(x.name||'').trim(),phone(String(x.phone||''))).first<StudentRecord>();
   if(x.bookingStudentId&&existing?.id!==x.bookingStudentId)return fail('연결된 학생을 찾을 수 없습니다.',404);
   x.id=existing?.id;x.active=x.active===undefined?(existing?!!existing.active:true):x.active;
-  x.nickname=existing?.nickname||('학생'+crypto.randomUUID().replace(/-/g,'').slice(0,12));
+  // Older managers omit nickname; explicit choices must reach normal validation unchanged.
+  if(x.nickname===undefined)x.nickname=existing?.nickname||('학생'+crypto.randomUUID().replace(/-/g,'').slice(0,12));
  }
  const items=Array.isArray(x.students)?x.students:[x];
  if(!items.length||items.length>200)return fail('한 번에 1~200명을 등록해 주세요.');
