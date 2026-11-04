@@ -100,6 +100,18 @@ const cookieOf=r=>r.headers.get('set-cookie').split(';')[0];
  await expect(await reservationVerify.POST(req({nickname:'새닉네임01',credential:managerReset.credentials[0].pin})),200);
  assert.equal(sql.prepare('SELECT COUNT(*) n FROM students WHERE id=?').get(unified.managerId).n,1);
  assert.equal(sql.prepare('SELECT student_id FROM bookings WHERE id=?').get(managerBooking.id).student_id,unified.managerId);
+
+ // Contact types are separate, shared with report recipients, and backward compatible.
+ const contactSaved=await expect(await manage.POST(req({...oldClient,parentPhone:'010-3333-4444'},adminCookie)),200);
+ assert.equal(contactSaved.students[0].parentPhone,'01033334444');
+ let contact=sql.prepare('SELECT * FROM learning_contacts WHERE student_id=?').get(unified.managerId);assert.equal(contact.student_phone,unified.phone);assert.equal(contact.parent_phone,'01033334444');
+ await expect(await manage.POST(req(oldClient,adminCookie)),200);assert.equal(sql.prepare('SELECT parent_phone FROM learning_contacts WHERE student_id=?').get(unified.managerId).parent_phone,'01033334444');
+ await expect(await manage.POST(req({...oldClient,parentPhone:'123'},adminCookie)),400);
+ sql.prepare('UPDATE learning_contacts SET student_phone=NULL WHERE student_id=?').run(unified.managerId);
+ await expect(await manage.POST(req({action:'sync-student-contacts',studentIds:[unified.managerId]},adminCookie)),200);
+ contact=sql.prepare('SELECT * FROM learning_contacts WHERE student_id=?').get(unified.managerId);assert.equal(contact.student_phone,unified.phone);assert.equal(contact.parent_phone,'01033334444');
+ const contactsList=await expect(await manage.GET(req({},adminCookie)),200);assert.equal(contactsList.students.find(s=>s.id===unified.managerId).phone,unified.phone);assert.equal(contactsList.students.find(s=>s.id===unified.managerId).parentPhone,'01033334444');
+ const csvPhones=imports.parseStudentImport('닉네임,이름,학교,학년,학생 연락처,학부모 연락처\n연락처테스트,학생이름,새중,중2,01011112222,01033334444')[0];assert.equal(csvPhones.phone,'01011112222');assert.equal(csvPhones.parentPhone,'01033334444');
  const managerAuth=load(root+'/app/api/admin/manager-session/route.ts');await expect(await managerAuth.POST(req()),403);env.MANAGER_SERVICE_KEY='test-only-key-'.repeat(5);
  const serviceRequest=new NextRequest('https://test.local/api/admin/manager-session',{method:'POST',headers:{authorization:'Bearer '+env.MANAGER_SERVICE_KEY}});const service=await expect(await managerAuth.POST(serviceRequest),200);assert.equal(await load('@/lib/server').adminRoleForToken(service.token),'owner');
  console.log('PASS: protected student CRUD/import and duplicate validation; hashed PIN, masked sessions, brute-force limits; legacy linking; nickname booking uses server identity and weekly limits; isolated lookup/cancel/change; profile updates, PIN revocation and inactive student rejection; CSV quoting/BOM/leading zero validation.');

@@ -1,5 +1,5 @@
-export type StudentImport={nickname:string;name:string;school:string;academy?:string;grade:string;phone:string;pin?:string};
-const columns:Record<string,keyof StudentImport>={'닉네임':'nickname','이름':'name','학생명':'name','학교':'school','소속학원':'academy','학원':'academy',academy:'academy','학년':'grade','연락처':'phone','전화번호':'phone','예약pin':'pin','pin':'pin',nickname:'nickname',name:'name',school:'school',grade:'grade',phone:'phone'};
+export type StudentImport={nickname:string;name:string;school:string;academy?:string;grade:string;phone:string;parentPhone?:string;pin?:string};
+const columns:Record<string,keyof StudentImport>={'닉네임':'nickname','이름':'name','학생명':'name','학교':'school','소속학원':'academy','학원':'academy',academy:'academy','학년':'grade','학생연락처':'phone','학부모연락처':'parentPhone','parentphone':'parentPhone','연락처':'phone','전화번호':'phone','예약pin':'pin','pin':'pin',nickname:'nickname',name:'name',school:'school',grade:'grade',phone:'phone'};
 export function parseStudentImport(source:string):StudentImport[]{
  const text=source.replace(/^\uFEFF/,'');if(!text.trim())throw new Error('파일이 비어 있습니다.');
  const delimiter=text.split(/\r?\n/,1)[0].includes('\t')?'\t':',';
