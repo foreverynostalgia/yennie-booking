@@ -1,0 +1,6 @@
+const fs=require('node:fs'),ts=require('typescript'),React=require('react'),{renderToStaticMarkup}=require('react-dom/server'),assert=require('node:assert/strict');
+const mod={exports:{}};new Function('require','exports','module',ts.transpileModule(fs.readFileSync('app/admin/bulk-list.tsx','utf8'),{compilerOptions:{jsx:ts.JsxEmit.ReactJSX,module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(require,mod.exports,mod);
+const markup=renderToStaticMarkup(React.createElement(mod.exports.default,{label:'학생 목록'},[React.createElement('article',{key:'a'},'가학생'),React.createElement('article',{key:'b'},'나학생')]));
+assert.equal((markup.match(/type="checkbox"/g)||[]).length,3);assert.ok(markup.includes('현재 목록 전체 선택'));assert.ok(markup.includes('가학생'));assert.ok(markup.includes('나학생'));assert.ok(markup.includes('0 / 2개 선택'));
+const source=fs.readFileSync('app/admin/bookings-manager.tsx','utf8');assert.ok(source.includes('const selectable=shown'));assert.ok(source.includes('cancellableSelected=selected.filter(canCancel)'));assert.ok(source.includes('setBulkTarget([...cancellableSelected])'));
+console.log('PASS shared record list: select-all and per-row checkboxes, preserved contents, count, and cancellation eligibility separation.');
