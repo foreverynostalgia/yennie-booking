@@ -2,9 +2,21 @@ import {NextRequest} from 'next/server';
 import {admin,db,fail,json,protectedMutation} from '@/lib/server';
 import {videoAudience,youtubeId,youtubeMetadata,type ReviewVideo} from '@/lib/review-videos';
 import {validReviewQuiz,reviewReport} from '@/lib/review-learning';
-export async function GET(req:NextRequest){if(!await admin(req))return fail('전체 관리자 권한이 필요합니다.',403);try{return json({videos:(await db().prepare('SELECT * FROM review_videos ORDER BY sort_order,lesson_no,created_at').all()).results,courses:(await db().prepare('SELECT id,title FROM review_courses WHERE active=1 ORDER BY title').all()).results})}catch{return fail('영상을 불러오지 못했습니다.',503)}}
+export async function GET(req:NextRequest){if(!await admin(req))return fail('전체 관리자 권한이 필요합니다.',403);try{return json({classAssignments:(await db().prepare('SELECT * FROM review_class_assignments ORDER BY class_name').all()).results,videos:(await db().prepare('SELECT * FROM review_videos ORDER BY sort_order,lesson_no,created_at').all()).results,courses:(await db().prepare('SELECT id,title FROM review_courses WHERE active=1 ORDER BY title').all()).results})}catch{return fail('영상을 불러오지 못했습니다.',503)}}
 export async function POST(req:NextRequest){if(!await protectedMutation(req))return fail('전체 관리자 권한이 필요합니다.',403);try{
  const x=await req.json() as any;
+ if(x.action==='class-assign'){
+ if(typeof x.classId!=='string'||!/^[a-zA-Z0-9_-]{1,80}$/.test(x.classId)||typeof x.className!=='string'||!x.className.trim()||x.className.length>120)return fail('정식 수업을 확인해 주세요.');
+ if(!Array.isArray(x.reviewCourseIds)||x.reviewCourseIds.length>100||!Array.isArray(x.studentIds)||x.studentIds.length>1000)return fail('커리큘럼과 학생 목록을 확인해 주세요.');
+ for(const id of x.reviewCourseIds)if(typeof id!=='string'||!await db().prepare('SELECT id FROM review_courses WHERE id=? AND active=1').bind(id).first())return fail('등록된 복습 강좌를 선택해 주세요.');
+ for(const id of x.studentIds)if(typeof id!=='string'||!await db().prepare('SELECT id FROM students WHERE id=? AND active=1').bind(id).first())return fail('등록된 활성 학생을 선택해 주세요.');
+ await db().prepare('INSERT INTO review_class_assignments(class_id,class_name,review_course_ids,student_ids,updated_at) VALUES(?,?,?,?,?) ON CONFLICT(class_id) DO UPDATE SET class_name=excluded.class_name,review_course_ids=excluded.review_course_ids,student_ids=excluded.student_ids,updated_at=excluded.updated_at').bind(x.classId,x.className.trim(),JSON.stringify([...new Set(x.reviewCourseIds)]),JSON.stringify([...new Set(x.studentIds)]),new Date().toISOString()).run();return json({ok:true});}
+ if(x.action==='class-roster'){
+ const old=await db().prepare('SELECT class_id FROM review_class_assignments WHERE class_id=?').bind(String(x.classId||'')).first();if(!old)return json({ok:true});
+ if(!Array.isArray(x.studentIds)||x.studentIds.length>1000||typeof x.className!=='string'||!x.className.trim()||x.className.length>120)return fail('수강생 정보를 확인해 주세요.');
+ for(const id of x.studentIds)if(typeof id!=='string'||!await db().prepare('SELECT id FROM students WHERE id=? AND active=1').bind(id).first())return fail('활성 학생만 배정할 수 있습니다.');
+ await db().prepare('UPDATE review_class_assignments SET class_name=?,student_ids=?,updated_at=? WHERE class_id=?').bind(x.className,JSON.stringify([...new Set(x.studentIds)]),new Date().toISOString(),x.classId).run();return json({ok:true});}
+ if(x.action==='class-unassign'){await db().prepare('DELETE FROM review_class_assignments WHERE class_id=?').bind(String(x.classId||'')).run();return json({ok:true});}
  if(x.action==='course-create'){const title=typeof x.title==='string'?x.title.normalize('NFKC').trim():'';if(!title||title.length>100)return fail('복습 강좌명을 100자 이내로 입력해 주세요.');await db().prepare('INSERT OR IGNORE INTO review_courses(id,title,active,created_at) VALUES(?,?,1,?)').bind(crypto.randomUUID(),title,new Date().toISOString()).run();const course=await db().prepare('SELECT id,title FROM review_courses WHERE title=? AND active=1').bind(title).first();return course?json({course}):fail('강좌를 확인하지 못했습니다.');}
 
  if(x.action==='metadata')return json(await youtubeMetadata(youtubeId(x.url)));
