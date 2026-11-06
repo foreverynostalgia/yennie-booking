@@ -1,4 +1,5 @@
 'use client';
+import {compareTitles} from '@/lib/list-order';
 import {calendarBookingTitle,calendarLabelLimit} from '@/lib/calendar-display';
 import {useEffect,useRef,useState} from 'react';
 import BookingCalendar from './booking-calendar';
@@ -71,7 +72,7 @@ export default function Admin(){
       if(d.role==='student_manager'){window.location.replace('/admin/viewer');return}
       throw new Error('관리자 권한을 확인하지 못했습니다. 다시 로그인해 주세요.');
     }
-    setRole('owner');setAuthorized(true);setCourses(d.courses);setBookings(d.bookings);setAlimtalkConfigured(!!d.alimtalkConfigured);
+    setRole('owner');setAuthorized(true);setCourses([...d.courses].sort(compareTitles));setBookings(d.bookings);setAlimtalkConfigured(!!d.alimtalkConfigured);
   }
   useEffect(()=>{load().catch(()=>setAuthorized(false))},[]);
   useEffect(()=>{if(!edit&&!copiedCourse&&!title)setColor(courseColors[courses.length%courseColors.length])},[courses.length,edit,copiedCourse,title]);

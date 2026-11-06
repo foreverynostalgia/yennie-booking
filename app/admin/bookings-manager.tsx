@@ -1,4 +1,5 @@
 'use client';
+import {compareDates,compareTitles} from '@/lib/list-order';
 import {sortedStudents} from '@/lib/student-order';
 import {courseColor} from '@/lib/course-colors';
 import {useEffect,useMemo,useState} from 'react';
@@ -23,13 +24,9 @@ export default function BookingsManager({bookings,configured,busy,onCancel,onBul
  const [selectedIds,setSelectedIds]=useState<string[]>([]),[bulkTarget,setBulkTarget]=useState<Booking[]|null>(null),[bulkNotice,setBulkNotice]=useState('');
  useEffect(()=>{if(pastOnly){setMonth(new Date(Number(weekDate.slice(0,4)),Number(weekDate.slice(5,7))-1,1));setSelectedDate('')}},[weekDate,pastOnly]);
  const students=useMemo(()=>sortedStudents(Array.from(new Map(bookings.map(b=>[studentKey(b),b])).values())),[bookings]);
- const courses=useMemo(()=>Array.from(new Map(bookings.map(b=>[b.course_id,b])).values()),[bookings]);
+ const courses=useMemo(()=>Array.from(new Map(bookings.map(b=>[b.course_id,b])).values()).sort(compareTitles),[bookings]);
  const invalidRange=!!from&&!!to&&from>to;
- const filtered=bookings.filter(b=>(!pastOnly||(b.date>=week.start&&b.date<week.end))&&(!course||b.course_id===course)&&(!student||studentKey(b)===student)&&(!school||b.school===school)&&(!grade||b.grade===grade)&&(!status||b.status===status)&&(!search||b.name.includes(search.trim())||b.phone.includes(search.trim()))&&(!from||b.date>=from)&&(!to||b.date<=to)).sort((a,b)=>{
-  if(pastOnly||cancelledOnly)return b.date.localeCompare(a.date)||a.start.localeCompare(b.start)||a.name.localeCompare(b.name,'ko');
-  const endedA=new Date(`${a.date}T${a.end}:00+09:00`).getTime()<=Date.now(),endedB=new Date(`${b.date}T${b.end}:00+09:00`).getTime()<=Date.now();
-  return Number(endedA)-Number(endedB)||(endedA?b.date.localeCompare(a.date):a.date.localeCompare(b.date))||a.start.localeCompare(b.start)||a.name.localeCompare(b.name,'ko');
- });
+ const filtered=bookings.filter(b=>(!pastOnly||(b.date>=week.start&&b.date<week.end))&&(!course||b.course_id===course)&&(!student||studentKey(b)===student)&&(!school||b.school===school)&&(!grade||b.grade===grade)&&(!status||b.status===status)&&(!search||b.name.includes(search.trim())||b.phone.includes(search.trim()))&&(!from||b.date>=from)&&(!to||b.date<=to)).sort(compareDates);
  const monthKey=dateKey(month).slice(0,7),monthly=filtered.filter(b=>b.date.startsWith(monthKey));
  const cells=useMemo(()=>{const blank=(month.getDay()+6)%7,count=new Date(month.getFullYear(),month.getMonth()+1,0).getDate();return [...Array(blank).fill(null),...Array.from({length:count},(_,i)=>dateKey(new Date(month.getFullYear(),month.getMonth(),i+1)))] as (string|null)[]},[month]);
  const shown=view==='calendar'?filtered.filter(b=>b.date===selectedDate):filtered;
