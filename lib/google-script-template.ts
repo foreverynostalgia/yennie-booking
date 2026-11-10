@@ -7,8 +7,30 @@ const BOOKING_COLORS = [CalendarApp.EventColor.PALE_BLUE, CalendarApp.EventColor
 
 function authorizeCalendar() { return CalendarApp.getDefaultCalendar().getName(); }
 function bookingTime(date) { return Utilities.formatDate(date, 'Asia/Seoul', 'yyyy-MM-dd HH:mm').split(' '); }
+function bookingAttendanceLine(event) {
+  const match = String(event.getDescription() || '').match(/(?:^|\n)출결:\s*([^\n]*)/);
+  return match ? match[1].trim() : '';
+}
 function bookingSignature(event) {
-  return JSON.stringify([bookingTime(event.getStartTime()), bookingTime(event.getEndTime())]);
+  return JSON.stringify([bookingTime(event.getStartTime()), bookingTime(event.getEndTime()), event.getTitle(), bookingAttendanceLine(event)]);
+}
+function bookingAttendance(event, previous) {
+  const values = {'출석':'present','결석':'absent','지각':'late','사유 결석':'excused','미확인':'unmarked'};
+  const title = String(event.getTitle() || ''), line = bookingAttendanceLine(event);
+  const match = title.match(/\((출석|결석|지각|사유 결석|미확인)\)\s*$/);
+  if (previous && previous.length > 2 && title !== previous[2]) return match ? values[match[1]] : 'unmarked';
+  if (previous && previous.length > 3 && line !== previous[3]) {
+    if (!line) return 'unmarked';
+    if (!Object.prototype.hasOwnProperty.call(values,line)) throw new Error('출결은 출석·결석·지각·사유 결석·미확인 중 하나로 입력하세요.');
+    return values[line];
+  }
+  return match ? values[match[1]] : values[line] || 'unmarked';
+}
+function setBookingAttendance(event, attendance) {
+  const labels = {present:'출석',absent:'결석',late:'지각',excused:'사유 결석',unmarked:'미확인'};
+  const description = String(event.getDescription() || '');
+  const line = '출결: ' + labels[attendance];
+  event.setDescription(/(?:^|\n)출결:[^\n]*/.test(description) ? description.replace(/(^|\n)출결:[^\n]*/, '$1' + line) : [description,line].filter(Boolean).join('\n'));
 }
 function bookingRequest(change) {
   const response = UrlFetchApp.fetch(BOOKING_SITE + '/api/calendar/inbound', {
@@ -53,7 +75,7 @@ function doPost(e) {
         if (Number.isInteger(colorIndex) && BOOKING_COLORS[colorIndex]) event.setColor(BOOKING_COLORS[colorIndex]);
         props.setProperty(snap, bookingSignature(event));
       } else throw new Error('지원하지 않는 동작');
-      return ContentService.createTextOutput(JSON.stringify({ok:true,version:3,bookingId:p.bookingId})).setMimeType(ContentService.MimeType.JSON);
+      return ContentService.createTextOutput(JSON.stringify({ok:true,version:4,bookingId:p.bookingId})).setMimeType(ContentService.MimeType.JSON);
     } finally { lock.releaseLock(); }
   } catch (err) {
     return ContentService.createTextOutput(JSON.stringify({ok:false,error:String(err.message || err)})).setMimeType(ContentService.MimeType.JSON);
@@ -86,9 +108,11 @@ function syncCalendarChanges() {
         if (sig !== last) {
           const start = bookingTime(event.getStartTime()), end = bookingTime(event.getEndTime());
           if (start[0] !== end[0]) throw new Error('하루 안에서 끝나는 일정만 예약할 수 있습니다.');
-          const result = bookingRequest({action:'update',eventId:event.getId(),bookingId:id,date:start[0],start:start[1],end:end[1]});
+          const attendance = bookingAttendance(event, JSON.parse(last));
+          const result = bookingRequest({action:'update',eventId:event.getId(),bookingId:id,date:start[0],start:start[1],end:end[1],attendance:attendance});
           if (result.title) event.setTitle(result.title);
-          props.setProperty('booking_snapshot_' + id,sig);
+          setBookingAttendance(event,attendance);
+          props.setProperty('booking_snapshot_' + id,bookingSignature(event));
         }
       } catch (error) { console.error('예약 ' + id + ': ' + String(error)); }
     });

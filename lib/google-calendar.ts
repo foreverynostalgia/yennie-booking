@@ -47,7 +47,7 @@ export async function syncGoogleCalendarBooking(id:string){
     if(!response.headers.get('content-type')?.includes('json'))throw new Error('Google Script 웹 앱 액세스 권한을 모든 사용자로 설정하고 /exec 주소를 확인해 주세요.');
     const result=await response.json() as {ok?:boolean;version?:number;error?:string};
     if(!result.ok)throw new Error(`Google Script: ${result.error||'일정 반영을 확인하지 못했습니다.'}`);
-    if(payload.action==='upsert'&&![2,3].includes(Number(result.version)))throw new Error('학생 이름·수업 색상 표시를 적용하려면 Apps Script 코드를 새 코드로 교체한 뒤 기존 배포를 새 버전으로 업데이트해 주세요.');
+    if(payload.action==='upsert'&&![2,3,4].includes(Number(result.version)))throw new Error('학생 이름·수업 색상 표시를 적용하려면 Apps Script 코드를 새 코드로 교체한 뒤 기존 배포를 새 버전으로 업데이트해 주세요.');
     await db().prepare("UPDATE bookings SET calendar_sync_status='synced',calendar_synced_at=?,calendar_sync_error=NULL WHERE id=?").bind(new Date().toISOString(),id).run();return;
    }
    if(!makeWebhook)throw new Error('Make 연결 주소를 확인해 주세요.');

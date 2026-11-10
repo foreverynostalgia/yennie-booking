@@ -1,3 +1,4 @@
+import {attendanceText} from '@/lib/attendance';
 import {calendarBookingTitle} from '@/lib/calendar-display';
 import {NextRequest} from 'next/server';
 import {db,fail,json} from '@/lib/server';
@@ -14,7 +15,7 @@ import {waitUntil} from 'cloudflare:workers';
 import {notifyAdminPush} from '@/lib/admin-push';
 import {sendReservationAlimtalk} from '@/lib/alimtalk';
 
-type Change={action:'create'|'update'|'delete';eventId:string;bookingId?:string;title?:string;date?:string;start?:string;end?:string};
+type Change={action:'create'|'update'|'delete';eventId:string;bookingId?:string;title?:string;date?:string;start?:string;end?:string;attendance?:string};
 const uuid=/^[a-f0-9-]{36}$/;
 const active="('confirmed','cancel_pending','change_pending')";
 const mapKey=async(id:string)=>'google_event_'+Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(id)))).map(x=>x.toString(16).padStart(2,'0')).join('');
@@ -58,23 +59,27 @@ async function apply(x:Change){
  if(!old)throw Error('예약 시스템에서 일정을 찾지 못했습니다.');
  if(x.action==='delete'){
   if(old.status==='cancelled'){await db().prepare('DELETE FROM calendar_settings WHERE id=?').bind(key).run();return {bookingId:id}}
-  const r=await db().prepare(`UPDATE bookings SET status='cancelled',cancelled_at=?,requested_date=NULL,requested_start=NULL,requested_end=NULL,change_requested_at=NULL WHERE id=? AND attendance='unmarked' AND status IN ${active}`).bind(new Date().toISOString(),id).run();
-  if(!r.meta.changes)throw Error('출결이 입력된 예약은 캘린더에서 삭제할 수 없습니다.');
+  const r=await db().prepare(`UPDATE bookings SET status='cancelled',cancelled_at=?,requested_date=NULL,requested_start=NULL,requested_end=NULL,change_requested_at=NULL WHERE id=? AND status IN ${active}`).bind(new Date().toISOString(),id).run();
+  if(!r.meta.changes)throw Error('이미 취소되었거나 삭제할 수 없는 예약입니다.');
   await db().prepare('DELETE FROM calendar_settings WHERE id=?').bind(key).run();return {bookingId:id};
  }
- if(old.status==='cancelled'||old.attendance!=='unmarked')throw Error('취소·출결 처리된 예약은 캘린더에서 수정할 수 없습니다.');
+ if(old.status==='cancelled')throw Error('취소된 예약은 캘린더에서 수정할 수 없습니다.');
+ const attendance=x.attendance===undefined?old.attendance:x.attendance;
+ if(typeof attendance!=='string'||!Object.hasOwn(attendanceText,attendance))throw Error('출결 값을 확인해 주세요.');
  const date=String(x.date||''),start=String(x.start||''),end=String(x.end||'');
- if(!validAdminBookingSchedule(date,start,end)||new Date(`${date}T${start}:00+09:00`).getTime()<=Date.now())throw Error('미래의 유효한 날짜와 시간을 설정해 주세요.');
+ if(!validAdminBookingSchedule(date,start,end))throw Error('유효한 날짜와 시간을 설정해 주세요.');
+ const scheduleChanged=date!==old.date||start!==(old.time_start||old.course_start)||end!==(old.time_end||old.course_end);
+ if(!scheduleChanged){await db().prepare("UPDATE bookings SET attendance=?,attendance_updated_at=?,calendar_sync_status='synced',calendar_synced_at=?,calendar_sync_error=NULL WHERE id=? AND status IN "+active).bind(attendance,new Date().toISOString(),new Date().toISOString(),id).run();await remember(key,id);return {bookingId:id,title:calendarBookingTitle(old.name,old.calendar_label,attendance)};}
  const week=bookingWeek(date);
  const r=await db().prepare(`WITH n AS (SELECT ? AS id,? AS date,? AS start,? AS end,? AS week_start,? AS week_end)
-  UPDATE bookings SET date=n.date,time_start=n.start,time_end=n.end,status='confirmed',requested_date=NULL,requested_start=NULL,requested_end=NULL,cancel_requested_at=NULL,change_requested_at=NULL,calendar_sync_status='synced',calendar_synced_at=?
-  FROM n JOIN courses c ON c.id=? WHERE bookings.id=n.id AND bookings.status IN ${active} AND bookings.attendance='unmarked'
+  UPDATE bookings SET date=n.date,time_start=n.start,time_end=n.end,status='confirmed',requested_date=NULL,requested_start=NULL,requested_end=NULL,cancel_requested_at=NULL,change_requested_at=NULL,calendar_sync_status='synced',calendar_synced_at=?,calendar_sync_error=NULL,attendance=?,attendance_updated_at=?
+  FROM n JOIN courses c ON c.id=? WHERE bookings.id=n.id AND bookings.status IN ${active}
   AND ${peakOccupancySql('bookings.course_id','n.date','n.start','n.end','n.id')}<c.capacity
   AND NOT EXISTS (SELECT 1 FROM reservation_blocks rb WHERE rb.date=n.date AND ${blockAppliesSql('bookings.course_id')} AND rb.start<n.end AND rb.end>n.start)
   AND NOT EXISTS (SELECT 1 FROM bookings b WHERE b.id<>n.id AND b.course_id=bookings.course_id AND b.date=n.date AND (b.student_id=bookings.student_id OR (b.name=bookings.name AND b.phone=bookings.phone)) AND b.status IN ${active} AND COALESCE(b.time_start,c.start)<n.end AND COALESCE(b.time_end,c.end)>n.start)
-  AND (c.weekly_limit=0 OR (SELECT COUNT(*) FROM bookings b WHERE b.id<>n.id AND b.course_id=bookings.course_id AND (b.student_id=bookings.student_id OR (b.name=bookings.name AND b.phone=bookings.phone)) AND b.date>=n.week_start AND b.date<n.week_end AND b.status IN ${active})<c.weekly_limit)`).bind(id,date,start,end,week.start,week.end,new Date().toISOString(),old.course_id).run();
+  AND (c.weekly_limit=0 OR (SELECT COUNT(*) FROM bookings b WHERE b.id<>n.id AND b.course_id=bookings.course_id AND (b.student_id=bookings.student_id OR (b.name=bookings.name AND b.phone=bookings.phone)) AND b.date>=n.week_start AND b.date<n.week_end AND b.status IN ${active})<c.weekly_limit)`).bind(id,date,start,end,week.start,week.end,new Date().toISOString(),attendance,new Date().toISOString(),old.course_id).run();
  if(!r.meta.changes)throw Error('차단·정원·중복·주간 한도 또는 선행 수업 조건을 확인해 주세요.');
- await remember(key,id);return {bookingId:id,title:calendarBookingTitle(old.name,old.calendar_label,old.attendance)};
+ await remember(key,id);return {bookingId:id,title:calendarBookingTitle(old.name,old.calendar_label,attendance)};
 }
 export async function POST(req:NextRequest){
  const setting=await getScriptConnection();

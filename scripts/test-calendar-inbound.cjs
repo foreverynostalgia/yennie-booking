@@ -21,8 +21,20 @@ sql.prepare('INSERT INTO students(id,nickname,name,school,grade,phone,pin_hash,a
  sql.prepare('INSERT INTO reservation_blocks(id,date,start,end,created_at) VALUES(?,?,?,?,?)').run(crypto.randomUUID(),date,'18:00','20:00','2099-01-01');
  await call({action:'update',eventId,bookingId:saved.bookingId,date,start:'18:00',end:'19:00'},409);
  assert.equal(sql.prepare('SELECT time_start FROM bookings WHERE id=?').get(saved.bookingId).time_start,'16:00');
+ // Attendance-only updates work for past lessons, even when an existing slot is blocked.
+ const attendanceUpdate={action:'update',eventId,bookingId:saved.bookingId,date,start:'16:00',end:'17:00'};
+ await call({...attendanceUpdate,attendance:'present'});
+ assert.equal(sql.prepare('SELECT attendance FROM bookings WHERE id=?').get(saved.bookingId).attendance,'present');
+ await call({...attendanceUpdate,attendance:'invalid'},409);
+ await call({...attendanceUpdate,attendance:'late'});
+ assert.equal(sql.prepare('SELECT attendance FROM bookings WHERE id=?').get(saved.bookingId).attendance,'late');
+ await call({...attendanceUpdate,date:'2026-01-05',attendance:'absent'});
+ assert.equal(sql.prepare('SELECT date,attendance FROM bookings WHERE id=?').get(saved.bookingId).date,'2026-01-05');
+ await call({...attendanceUpdate,date:'2026-01-05',attendance:'unmarked'});
+ await call({...attendanceUpdate,date:'2026-01-05',attendance:'excused'});
  await call({action:'delete',eventId,bookingId:saved.bookingId});assert.equal(sql.prepare('SELECT status FROM bookings WHERE id=?').get(saved.bookingId).status,'cancelled');
  await call({action:'delete',eventId,bookingId:saved.bookingId});
+ assert.equal(sql.prepare('SELECT attendance FROM bookings WHERE id=?').get(saved.bookingId).attendance,'excused');
  await call({...create,eventId:'new-12345@google.com',start:'16:00',end:'17:00'});
  assert.equal(sql.prepare('SELECT COUNT(*) n FROM bookings WHERE status=\'confirmed\'').get().n,1);
  console.log('PASS: signed calendar callback; explicit nickname/class creation; idempotent retry; time changes; block rejection; deletion and rebooking');
