@@ -1,3 +1,4 @@
+import {calendarBookingTitle} from '@/lib/calendar-display';
 import {NextRequest} from 'next/server';
 import {db,fail,json} from '@/lib/server';
 import {getScriptConnection} from '@/lib/script-calendar';
@@ -24,7 +25,7 @@ async function apply(x:Change){
  if(!['create','update','delete'].includes(x.action)||typeof x.eventId!=='string'||x.eventId.length<5||x.eventId.length>300||!(/^[\w@.\-]+$/.test(x.eventId)))throw Error('일정 ID를 확인해 주세요.');
  const key=await mapKey(x.eventId),link=await mapped(key);
  if(x.action==='create'){
-  if(link){const found=await db().prepare('SELECT b.name,c.calendar_label,c.color,b.course_id FROM bookings b JOIN courses c ON c.id=b.course_id WHERE b.id=?').bind(link.bookingId).first<any>();return {bookingId:link.bookingId,title:found?.name+(found?.calendar_label?' · '+found.calendar_label:''),colorId:found?googleEventColor(found.color,found.course_id):undefined};}
+  if(link){const found=await db().prepare('SELECT b.name,b.attendance,c.calendar_label,c.color,b.course_id FROM bookings b JOIN courses c ON c.id=b.course_id WHERE b.id=?').bind(link.bookingId).first<any>();return {bookingId:link.bookingId,title:found?calendarBookingTitle(found.name,found.calendar_label,found.attendance):undefined,colorId:found?googleEventColor(found.color,found.course_id):undefined};}
   const parts=String(x.title||'').split('|').map(s=>s.trim());
   if(parts.length!==3||parts[0]!=='예약추가'||!parts[1]||!parts[2])throw Error('새 일정 제목을 예약추가 | 닉네임 | 수업명 형식으로 입력해 주세요.');
   const student=await db().prepare('SELECT * FROM students WHERE nickname=? AND active=1').bind(parts[1]).first<any>();
@@ -45,7 +46,7 @@ async function apply(x:Change){
     AND NOT EXISTS (SELECT 1 FROM bookings b WHERE b.course_id=n.course_id AND b.date=n.date AND (b.student_id=n.student_id OR (b.name=n.name AND b.phone=n.phone)) AND b.status IN ${active} AND COALESCE(b.time_start,c.start)<n.end AND COALESCE(b.time_end,c.end)>n.start)
     AND (c.weekly_limit=0 OR (SELECT COUNT(*) FROM bookings b WHERE b.course_id=n.course_id AND (b.student_id=n.student_id OR (b.name=n.name AND b.phone=n.phone)) AND b.date>=n.week_start AND b.date<n.week_end AND b.status IN ${active})<c.weekly_limit)
     AND NOT EXISTS (SELECT 1 FROM bookings WHERE access_code=n.code)`).bind(id,c.id,date,start,end,student.id,student.name,student.school,student.grade,student.phone,code,week.start,week.end,new Date().toISOString()).run();
-   if(inserted.meta.changes){await remember(key,id);waitUntil(Promise.allSettled([notifyAdminPush('reservation',{name:student.name,title:c.title,date,start,end}),sendReservationAlimtalk(id)]).then(()=>{}));return {bookingId:id,title:student.name+(c.calendar_label?' · '+c.calendar_label:''),colorId:googleEventColor(c.color,c.id)};}
+   if(inserted.meta.changes){await remember(key,id);waitUntil(Promise.allSettled([notifyAdminPush('reservation',{name:student.name,title:c.title,date,start,end}),sendReservationAlimtalk(id)]).then(()=>{}));return {bookingId:id,title:calendarBookingTitle(student.name,c.calendar_label),colorId:googleEventColor(c.color,c.id)};}
    if(!await db().prepare('SELECT 1 FROM bookings WHERE access_code=?').bind(code).first())break;
   }
   throw Error('차단·정원·중복·주간 한도 또는 선행 수업 조건을 확인해 주세요.');
@@ -73,7 +74,7 @@ async function apply(x:Change){
   AND NOT EXISTS (SELECT 1 FROM bookings b WHERE b.id<>n.id AND b.course_id=bookings.course_id AND b.date=n.date AND (b.student_id=bookings.student_id OR (b.name=bookings.name AND b.phone=bookings.phone)) AND b.status IN ${active} AND COALESCE(b.time_start,c.start)<n.end AND COALESCE(b.time_end,c.end)>n.start)
   AND (c.weekly_limit=0 OR (SELECT COUNT(*) FROM bookings b WHERE b.id<>n.id AND b.course_id=bookings.course_id AND (b.student_id=bookings.student_id OR (b.name=bookings.name AND b.phone=bookings.phone)) AND b.date>=n.week_start AND b.date<n.week_end AND b.status IN ${active})<c.weekly_limit)`).bind(id,date,start,end,week.start,week.end,new Date().toISOString(),old.course_id).run();
  if(!r.meta.changes)throw Error('차단·정원·중복·주간 한도 또는 선행 수업 조건을 확인해 주세요.');
- await remember(key,id);return {bookingId:id,title:old.name+(old.calendar_label?' · '+old.calendar_label:'')};
+ await remember(key,id);return {bookingId:id,title:calendarBookingTitle(old.name,old.calendar_label,old.attendance)};
 }
 export async function POST(req:NextRequest){
  const setting=await getScriptConnection();
