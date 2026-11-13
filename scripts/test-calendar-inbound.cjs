@@ -47,5 +47,13 @@ sql.prepare('INSERT INTO students(id,nickname,name,school,grade,phone,pin_hash,a
  await call({...simple,colorId:'7'},409);sql.prepare("DELETE FROM courses WHERE id='duplicate'").run();
  const simpleSaved=await call({...simple,colorId:'7'});assert.equal((await call({...simple,colorId:'7'})).bookingId,simpleSaved.bookingId);
  assert.equal(sql.prepare('SELECT course_id FROM bookings WHERE id=?').get(simpleSaved.bookingId).course_id,cid);
+ const calId='class-one@group.calendar.google.com';
+ await call({action:'bind-calendar',courseId:cid,calendarId:calId});
+ const boundCatalog=await call({action:'catalog'});assert.equal(boundCatalog.courses.find(c=>c.id===cid).calendarId,calId);
+ await call({...simple,eventId:'calendar-12345@google.com',date:'2099-04-19',calendarId:calId,colorId:'11'});
+ await call({...simple,eventId:'unknown-12345@google.com',calendarId:'unknown@group.calendar.google.com'},409);
+ sql.prepare("INSERT INTO courses(id,title,day,start,end,capacity,active) VALUES('other-bound','다른반',0,'14:00','16:00',10,1)").run();
+ await call({action:'bind-calendar',courseId:'other-bound',calendarId:calId},409);
+ await call({action:'bind-calendar',courseId:cid,calendarId:'primary'},409);
  console.log('PASS: signed calendar callback; explicit nickname/class creation; idempotent retry; time changes; block rejection; deletion and rebooking');
 })().catch(e=>{console.error(e);process.exitCode=1});

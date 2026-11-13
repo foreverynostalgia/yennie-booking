@@ -20,6 +20,44 @@ function enableSimpleBooking() {
   console.log('학생 예약 캘린더에서 닉네임 + 일정 색상으로 예약하세요. ' + JSON.stringify(catalog.courses));
   enableCalendarSync();
 }
+// 사이트 수업별로 전용 캘린더를 생성·배정합니다. 이미 배정된 캘린더는 재사용합니다.
+function enableCourseCalendars() {
+  const catalog = bookingRequest({action:'catalog'}), props = PropertiesService.getScriptProperties();
+  for (const course of catalog.courses) {
+    const key = 'course_calendar_' + course.id;
+    let id = course.calendarId || props.getProperty(key);
+    if (!id) {
+      const cal = CalendarApp.createCalendar('옌쌤 · ' + course.title,{timeZone:'Asia/Seoul'});
+      id = cal.getId(); props.setProperty(key,id);
+    }
+    const cal = CalendarApp.getCalendarById(id);
+    if (!cal || !cal.isOwnedByMe()) throw new Error(course.title + ': 내 계정이 소유한 캘린더에 연결하세요.');
+    bookingRequest({action:'bind-calendar',courseId:course.id,calendarId:id});
+    props.setProperty(key,id);
+    console.log(course.title + ' → ' + cal.getName());
+  }
+  refreshCourseCalendars(); enableCalendarSync();
+}
+function refreshCourseCalendars() {
+  const catalog = bookingRequest({action:'catalog'}), props = PropertiesService.getScriptProperties();
+  const previous = JSON.parse(props.getProperty('course_calendar_history') || '[]');
+  const courses = (catalog.courses || []).filter(course => course.calendarId);
+  props.setProperty('course_calendar_bindings',JSON.stringify(courses));
+  props.setProperty('course_calendar_history',JSON.stringify(Array.from(new Set(previous.concat(courses.map(course => course.calendarId))))));
+  return courses;
+}
+function courseCalendarBindings() { return JSON.parse(PropertiesService.getScriptProperties().getProperty('course_calendar_bindings') || '[]'); }
+function bookingCalendars() {
+  const props = PropertiesService.getScriptProperties();
+  const ids = JSON.parse(props.getProperty('course_calendar_history') || '[]');
+  const calendars = ids.map(id => {const cal = CalendarApp.getCalendarById(id);if (!cal) throw new Error('이전에 연결한 수업 캘린더의 접근 권한을 확인하세요.');return cal;});
+  return Array.from(new Map(calendars.concat([simpleBookingCalendar(),CalendarApp.getDefaultCalendar()].filter(Boolean)).map(cal => [cal.getId(),cal])).values());
+}
+function findBookingLocation(id) {
+  if (!id) return null;
+  for (const cal of bookingCalendars()) {const event = cal.getEventById(id);if (event) return {event:event,calendar:cal};}
+  return null;
+}
 function simpleBookingCalendar() {
   const id = PropertiesService.getScriptProperties().getProperty('simple_booking_calendar_id');
   if (!id) return null;
@@ -27,12 +65,7 @@ function simpleBookingCalendar() {
   if (!cal) throw new Error('학생 예약 캘린더에 접근할 수 없습니다.');
   return cal;
 }
-function findBookingEvent(id) {
-  if (!id) return null;
-  const calendars = [simpleBookingCalendar(),CalendarApp.getDefaultCalendar()].filter(Boolean);
-  for (const cal of calendars) { const event = cal.getEventById(id); if (event) return event; }
-  return null;
-}
+function findBookingEvent(id) { const found = findBookingLocation(id);return found ? found.event : null; }
 function bookingRegistrationError(event,message) {
   const description = String(event.getDescription() || '').replace(/(?:^|\n)예약 등록 오류:[^\n]*/g,'').trim();
   event.setDescription([description,'예약 등록 오류: ' + String(message).replace(/[\r\n]/g,' ').slice(0,400)].filter(Boolean).join('\n'));
@@ -82,14 +115,16 @@ function doPost(e) {
   try {
     const p = JSON.parse(e.postData.contents);
     if (p.token !== BOOKING_TOKEN) throw new Error('인증 코드가 일치하지 않습니다.');
-    if (p.action === 'diagnose') return ContentService.createTextOutput(JSON.stringify({ok:true,version:6,simpleBookingEnabled:!!PropertiesService.getScriptProperties().getProperty('simple_booking_calendar_id')})).setMimeType(ContentService.MimeType.JSON);
+    if (p.action === 'diagnose') return ContentService.createTextOutput(JSON.stringify({ok:true,version:7,simpleBookingEnabled:!!PropertiesService.getScriptProperties().getProperty('simple_booking_calendar_id')})).setMimeType(ContentService.MimeType.JSON);
     if (!/^[a-f0-9-]{36}$/.test(String(p.bookingId))) throw new Error('예약 ID 오류');
     const lock = LockService.getScriptLock(); lock.waitLock(25000);
     try {
-      const cal = simpleBookingCalendar() || CalendarApp.getDefaultCalendar(), props = PropertiesService.getScriptProperties();
+      const cal = p.calendarId ? CalendarApp.getCalendarById(p.calendarId) : simpleBookingCalendar() || CalendarApp.getDefaultCalendar(), props = PropertiesService.getScriptProperties();
       const key = 'booking_' + p.bookingId, snap = 'booking_snapshot_' + p.bookingId;
       const eventId = props.getProperty(key);
-      let event = findBookingEvent(eventId);
+      if (!cal) throw new Error('수업에 배정된 캘린더를 열지 못했습니다. 캘린더 ID와 계정을 확인하세요.');
+      const located = findBookingLocation(eventId);
+      let event = located ? located.event : null;
       if (p.action === 'delete') {
         if (event) event.deleteEvent();
         props.deleteProperty(key); props.deleteProperty(snap);
@@ -102,13 +137,21 @@ function doPost(e) {
           p.status === 'cancel_pending' ? '취소 승인 대기' : p.status === 'change_pending' ? '변경 승인 대기' : '',
           p.status === 'change_pending' && p.requestedDate ? '변경 요청: ' + p.requestedDate + ' ' + p.requestedStart + '–' + p.requestedEnd : '',
           p.bookingMarker].filter(Boolean).join('\n');
+        if (!event || located.calendar.getId() !== cal.getId()) {
+          const old = event;
+          const matches = cal.getEvents(start,end,{search:p.bookingMarker}).filter(item => bookingIdFrom(item) === p.bookingId);
+          if (matches.length > 1) throw new Error('대상 캘린더에 같은 예약이 여러 개 있습니다. 중복 일정을 확인하세요.');
+          event = matches[0] || cal.createEvent(title,start,end,{description:description});
+          if (old) old.deleteEvent();
+          props.setProperty(key,event.getId());
+        }
         if (event) { event.setTitle(title); event.setTime(start, end); event.setDescription(description); }
         else { event = cal.createEvent(title, start, end, {description: description}); props.setProperty(key, event.getId()); }
         const colorIndex = Number(p.eventColor) - 1;
         if (Number.isInteger(colorIndex) && BOOKING_COLORS[colorIndex]) event.setColor(BOOKING_COLORS[colorIndex]);
         props.setProperty(snap, bookingSignature(event));
       } else throw new Error('지원하지 않는 동작');
-      return ContentService.createTextOutput(JSON.stringify({ok:true,version:6,bookingId:p.bookingId})).setMimeType(ContentService.MimeType.JSON);
+      return ContentService.createTextOutput(JSON.stringify({ok:true,version:7,bookingId:p.bookingId})).setMimeType(ContentService.MimeType.JSON);
     } finally { lock.releaseLock(); }
   } catch (err) {
     return ContentService.createTextOutput(JSON.stringify({ok:false,error:String(err.message || err)})).setMimeType(ContentService.MimeType.JSON);
@@ -125,6 +168,7 @@ function syncCalendarChanges() {
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(1000)) return;
   try {
+    const courseBindings = refreshCourseCalendars();
     const cal = CalendarApp.getDefaultCalendar(), props = PropertiesService.getScriptProperties();
     const all = props.getProperties();
     // The known event IDs are checked directly so moving an event out of the scan window is still seen.
@@ -153,7 +197,13 @@ function syncCalendarChanges() {
     const from = new Date(Date.now() - 30 * 86400000), until = new Date(Date.now() + 365 * 86400000);
     const simple = simpleBookingCalendar(), simpleEvents = simple ? simple.getEvents(from,until) : [];
     const simpleIds = new Set(simpleEvents.map(event => event.getId()));
-    const events = Array.from(new Map(cal.getEvents(from,until).concat(simpleEvents).map(event => [event.getId(),event])).values());
+    const courseEventCalendars = new Map(), courseEvents = [];
+    for (const binding of courseBindings) {
+      const courseCal = CalendarApp.getCalendarById(binding.calendarId);
+      if (!courseCal) throw new Error(binding.title + ': 수업 캘린더에 접근할 수 없습니다.');
+      for (const event of courseCal.getEvents(from,until)) {courseEvents.push(event);courseEventCalendars.set(event.getId(),binding.calendarId);}
+    }
+    const events = Array.from(new Map(cal.getEvents(from,until).concat(simpleEvents,courseEvents).map(event => [event.getId(),event])).values());
     // Recover a newly added event if a previous run stopped after the Site accepted it.
     events.forEach(event => {
       const id = bookingIdFrom(event);
@@ -162,14 +212,15 @@ function syncCalendarChanges() {
         props.setProperty('booking_snapshot_' + id,bookingSignature(event));
       }
     });
-    events.filter(event => !bookingIdFrom(event) && (/^예약추가\s*\|/.test(event.getTitle()) || simpleIds.has(event.getId()))).forEach(event => {
+    events.filter(event => !bookingIdFrom(event) && (/^예약추가\s*\|/.test(event.getTitle()) || simpleIds.has(event.getId()) || courseEventCalendars.has(event.getId()))).forEach(event => {
       try {
         if (event.isAllDayEvent()) throw new Error('종일 일정 대신 시작·종료 시간을 설정하세요.');
         if (event.isRecurringEvent()) throw new Error('반복 일정 대신 예약 한 건씩 개별 일정으로 만들어 주세요.');
         const start = bookingTime(event.getStartTime()), end = bookingTime(event.getEndTime());
         if (start[0] !== end[0]) throw new Error('하루 안에서 끝나는 일정만 예약할 수 있습니다.');
+        const assignedCalendar = courseEventCalendars.get(event.getId());
         const legacy = /^예약추가\s*\|/.test(event.getTitle());
-        const result = bookingRequest(Object.assign({action:'create',eventId:event.getId(),title:event.getTitle(),date:start[0],start:start[1],end:end[1]}, legacy ? {} : {nickname:event.getTitle().trim(),colorId:String(event.getColor() || '')}));
+        const result = bookingRequest(Object.assign({action:'create',eventId:event.getId(),title:event.getTitle(),date:start[0],start:start[1],end:end[1]}, legacy ? {} : {nickname:event.getTitle().trim(),colorId:String(event.getColor() || '')}, assignedCalendar ? {calendarId:assignedCalendar} : {}));
         event.setDescription([String(event.getDescription() || '').replace(/(?:^|\n)예약 등록 오류:[^\n]*/g,'').trim(),BOOKING_MARKER + result.bookingId].filter(Boolean).join('\n'));
         if (result.title) event.setTitle(result.title);
         if (result.colorId && BOOKING_COLORS[Number(result.colorId)-1]) event.setColor(BOOKING_COLORS[Number(result.colorId)-1]);
