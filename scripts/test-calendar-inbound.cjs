@@ -51,6 +51,10 @@ sql.prepare('INSERT INTO students(id,nickname,name,school,grade,phone,pin_hash,a
  await call({action:'bind-calendar',courseId:cid,calendarId:calId});
  const boundCatalog=await call({action:'catalog'});assert.equal(boundCatalog.courses.find(c=>c.id===cid).calendarId,calId);
  await call({...simple,eventId:'calendar-12345@google.com',date:'2099-04-19',calendarId:calId,colorId:'11'});
+ const realName=await call({...simple,nickname:'김학생',eventId:'real-name-12345@google.com',date:'2099-04-26',calendarId:calId});assert.ok(realName.bookingId);
+ sql.prepare("INSERT INTO students(id,nickname,name,school,grade,phone,pin_hash,active,created_at,updated_at) SELECT 'same-name','다른닉네임',name,school,grade,'01099999999',pin_hash,active,created_at,updated_at FROM students WHERE id=?").run(sid);
+ await call({...simple,nickname:'김학생',eventId:'ambiguous-name-12345@google.com',date:'2099-05-03',calendarId:calId},409);
+ sql.prepare("DELETE FROM students WHERE id='same-name'").run();
  await call({...simple,eventId:'unknown-12345@google.com',calendarId:'unknown@group.calendar.google.com'},409);
  sql.prepare("INSERT INTO courses(id,title,day,start,end,capacity,active) VALUES('other-bound','다른반',0,'14:00','16:00',10,1)").run();
  await call({action:'bind-calendar',courseId:'other-bound',calendarId:calId},409);

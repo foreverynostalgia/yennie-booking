@@ -30,11 +30,11 @@ async function apply(x:Change){
   if(link){const found=await db().prepare('SELECT b.name,b.attendance,c.calendar_label,c.color,b.course_id FROM bookings b JOIN courses c ON c.id=b.course_id WHERE b.id=?').bind(link.bookingId).first<any>();return {bookingId:link.bookingId,title:found?calendarBookingTitle(found.name,found.calendar_label,found.attendance):undefined,colorId:found?googleEventColor(found.color,found.course_id):undefined};}
   const simple=x.nickname!==undefined;
   const parts=String(x.title||'').split('|').map(s=>s.trim());
-  if(!simple&&(parts.length!==3||parts[0]!=='예약추가'||!parts[1]||!parts[2]))throw Error('새 일정 제목을 예약추가 | 닉네임 | 수업명 형식으로 입력해 주세요.');
+  if(!simple&&(parts.length!==3||parts[0]!=='예약추가'||!parts[1]||!parts[2]))throw Error('새 일정 제목을 예약추가 | 학생 실명 | 수업명 형식으로 입력해 주세요.');
   const nickname=simple?String(x.nickname||'').trim():parts[1];
-  if(!nickname||nickname.length>80)throw Error('등록된 학생 닉네임을 입력해 주세요.');
-  const students=await db().prepare('SELECT * FROM students WHERE nickname=? AND active=1').bind(nickname).all<any>();
-  if(students.results.length!==1)throw Error('학생 닉네임이 없거나 중복됩니다. 학생 관리에서 정확한 닉네임을 확인하세요.');
+  if(!nickname||nickname.length>80)throw Error('등록된 학생 실명을 입력해 주세요.');
+  const students=await db().prepare('SELECT * FROM students WHERE (name=? OR nickname=?) AND active=1').bind(nickname,nickname).all<any>();
+  if(students.results.length!==1)throw Error('등록된 학생이 없거나 이름·닉네임이 중복됩니다. 학생 관리에서 확인하거나 고유한 닉네임으로 구분해 주세요.');
   const student=students.results[0];
   let course;
   if(x.calendarId!==undefined){const calendarId=String(x.calendarId);if(!validCourseCalendarId(calendarId))throw Error('수업 캘린더 ID를 확인하세요.');course=await db().prepare("SELECT c.* FROM courses c JOIN calendar_settings cs ON cs.id='google_course_calendar_'||c.id WHERE c.active=1 AND cs.webhook_encrypted=?").bind(calendarId).all<any>();if(course.results.length!==1)throw Error('이 캘린더에 연결된 수업이 없습니다. 수업별 캘린더 설정을 확인하세요.');}

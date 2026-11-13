@@ -17,7 +17,7 @@ function enableSimpleBooking() {
     if (!cal.isOwnedByMe()) throw new Error('내 계정이 소유한 학생 예약 캘린더를 사용하세요.');
     props.setProperty('simple_booking_calendar_id',cal.getId());
   }
-  console.log('학생 예약 캘린더에서 닉네임 + 일정 색상으로 예약하세요. ' + JSON.stringify(catalog.courses));
+  console.log('학생 예약 캘린더에서 학생 실명 + 일정 색상으로 예약하세요. ' + JSON.stringify(catalog.courses));
   enableCalendarSync();
 }
 // 사이트 수업별로 전용 캘린더를 생성·배정합니다. 이미 배정된 캘린더는 재사용합니다.
@@ -55,7 +55,7 @@ function bookingCalendars() {
 }
 function findBookingLocation(id) {
   if (!id) return null;
-  for (const cal of bookingCalendars()) {const event = cal.getEventById(id);if (event) return {event:event,calendar:cal};}
+  for (const cal of bookingCalendars()) {const event = cal.getEventById(id);if (!event) continue;const active = cal.getEvents(event.getStartTime(),event.getEndTime()).find(item => item.getId() === id);if (active) return {event:active,calendar:cal};}
   return null;
 }
 function simpleBookingCalendar() {
