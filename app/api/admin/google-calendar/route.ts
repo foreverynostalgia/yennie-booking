@@ -1,3 +1,4 @@
+import {requestGoogleScript} from '@/lib/google-script-http';
 import {NextRequest} from 'next/server';
 import {admin,db,fail,json,protectedMutation} from '@/lib/server';
 import {googleCalendarConfigured,syncGoogleCalendarBooking} from '@/lib/google-calendar';
@@ -13,10 +14,11 @@ export async function GET(req:NextRequest){
 }
 export async function POST(req:NextRequest){
  if(!await protectedMutation(req))return fail('관리자 로그인이 필요합니다.',401);
- const script=!!await getScriptConnection();
+ const connection=await getScriptConnection(),script=!!connection;
+ const body=await req.json().catch(()=>({})) as {refresh?:boolean;diagnose?:boolean};
+ if(body.diagnose===true){if(!connection)return fail('Google Script 연결 주소가 없습니다.',409);try{const {result,diagnostics}=await requestGoogleScript(connection.url,{token:connection.secret,action:'diagnose',bookingId:'diagnostic-not-a-booking'});return json({diagnostics,scriptResponse:result.error||null,version:result.version||null});}catch(e){return fail(e instanceof Error?e.message:'Google 연결 확인 실패',502)}}
  if(!script&&!await getMakeWebhook()&&!googleCalendarConfigured())return fail('구글 캘린더 연결 정보가 설정되지 않았습니다.',409);
  const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
- const body=await req.json().catch(()=>({})) as {refresh?:boolean};
  if(body.refresh===true)await db().prepare("UPDATE bookings SET calendar_sync_status='pending',calendar_sync_error=NULL WHERE status!='cancelled' AND date>=?").bind(today).run();
  const result=await db().prepare(script?"SELECT id FROM bookings WHERE (status!='cancelled' AND (date>=? OR calendar_synced_at IS NOT NULL OR attendance_updated_at IS NOT NULL) AND calendar_sync_status!='synced') OR (status='cancelled' AND calendar_synced_at IS NOT NULL AND calendar_sync_status!='synced') ORDER BY CASE WHEN calendar_sync_status='failed' THEN 1 ELSE 0 END,date ASC LIMIT 1":"SELECT id FROM bookings WHERE (status!='cancelled' AND (date>=? OR calendar_synced_at IS NOT NULL OR attendance_updated_at IS NOT NULL) AND calendar_sync_status NOT IN ('synced','sent')) OR (status='cancelled' AND calendar_synced_at IS NOT NULL AND calendar_sync_status NOT IN ('synced','sent')) ORDER BY CASE WHEN calendar_sync_status='failed' THEN 1 ELSE 0 END,date ASC LIMIT 1").bind(today).all<{id:string}>();
  for(const row of result.results)await syncGoogleCalendarBooking(row.id);
