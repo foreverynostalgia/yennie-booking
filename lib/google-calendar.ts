@@ -46,7 +46,7 @@ export async function syncGoogleCalendarBooking(id:string){
    if(script){
     const {result}=await requestGoogleScript(script.url,{...payload,token:script.secret,calendarId:await courseCalendarId(booking.course_id)});
     if(!result.ok)throw new Error(`Google Script: ${result.error||'일정 반영을 확인하지 못했습니다.'}`);
-    if(payload.action==='upsert'&&![2,3,4,5,6,7].includes(Number(result.version)))throw new Error('학생 이름·수업 색상 표시를 적용하려면 Apps Script 코드를 새 코드로 교체한 뒤 기존 배포를 새 버전으로 업데이트해 주세요.');
+    if(payload.action==='upsert'&&![2,3,4,5,6,7,8].includes(Number(result.version)))throw new Error('학생 이름·수업 색상 표시를 적용하려면 Apps Script 코드를 새 코드로 교체한 뒤 기존 배포를 새 버전으로 업데이트해 주세요.');
     if(await courseCalendarId(booking.course_id)&&Number(result.version)<7)throw Error('수업별 캘린더는 최신 Apps Script 코드(v7 이상)로 배포해야 합니다.');
     await db().prepare("INSERT INTO calendar_settings(id,webhook_encrypted,updated_at) VALUES('google_script_version',?,?) ON CONFLICT(id) DO UPDATE SET webhook_encrypted=excluded.webhook_encrypted,updated_at=excluded.updated_at").bind(String(result.version||0),new Date().toISOString()).run();
     await db().prepare("UPDATE bookings SET calendar_sync_status='synced',calendar_synced_at=?,calendar_sync_error=NULL WHERE id=?").bind(new Date().toISOString(),id).run();return;

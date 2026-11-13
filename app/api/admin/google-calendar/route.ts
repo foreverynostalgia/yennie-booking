@@ -12,7 +12,8 @@ export async function GET(req:NextRequest){
  const courses=await db().prepare('SELECT id,title,color FROM courses WHERE active=1 ORDER BY title').all<{id:string;title:string;color:string}>();
  const inbound=await db().prepare("SELECT MAX(updated_at) AS at FROM calendar_settings WHERE id LIKE 'google_event_%' OR id='google_inbound_health'").first<{at:string|null}>();
  const protocol=await db().prepare("SELECT webhook_encrypted AS version FROM calendar_settings WHERE id='google_script_version'").first<{version:string}>();
- const script=!!await getScriptConnection(),make=script?false:!!await getMakeWebhook();return json({courseColors:courses.results.map(c=>({title:c.title,colorId:googleEventColor(c.color,c.id)})),scriptVersion:protocol?Number(protocol.version):null,lastInboundAt:inbound?.at||null,configured:script||make||googleCalendarConfigured(),mode:script?'script':make?'make':googleCalendarConfigured()?'service':'none',counts:rows.results,lastError:failed?.error||null});
+ const lifecycle=await db().prepare("SELECT webhook_encrypted AS error FROM calendar_settings WHERE id='google_course_lifecycle_error'").first<{error:string}>();
+ const script=!!await getScriptConnection(),make=script?false:!!await getMakeWebhook();return json({courseColors:courses.results.map(c=>({title:c.title,colorId:googleEventColor(c.color,c.id)})),scriptVersion:protocol?Number(protocol.version):null,lastInboundAt:inbound?.at||null,configured:script||make||googleCalendarConfigured(),mode:script?'script':make?'make':googleCalendarConfigured()?'service':'none',counts:rows.results,lastError:lifecycle?.error||failed?.error||null});
 }
 export async function POST(req:NextRequest){
  if(!await protectedMutation(req))return fail('관리자 로그인이 필요합니다.',401);

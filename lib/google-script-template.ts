@@ -21,26 +21,32 @@ function enableSimpleBooking() {
   enableCalendarSync();
 }
 // 사이트 수업별로 전용 캘린더를 생성·배정합니다. 이미 배정된 캘린더는 재사용합니다.
-function enableCourseCalendars() {
-  const catalog = bookingRequest({action:'catalog'}), props = PropertiesService.getScriptProperties();
-  for (const course of catalog.courses) {
+function reconcileCourseCalendars(catalog) {
+  const props = PropertiesService.getScriptProperties();
+  for (const course of catalog.courses || []) {
     const key = 'course_calendar_' + course.id;
     let id = course.calendarId || props.getProperty(key);
-    if (!id) {
-      const cal = CalendarApp.createCalendar('옌쌤 · ' + course.title,{timeZone:'Asia/Seoul'});
-      id = cal.getId(); props.setProperty(key,id);
-    }
-    const cal = CalendarApp.getCalendarById(id);
-    if (!cal || !cal.isOwnedByMe()) throw new Error(course.title + ': 내 계정이 소유한 캘린더에 연결하세요.');
-    bookingRequest({action:'bind-calendar',courseId:course.id,calendarId:id});
+    let cal = id ? CalendarApp.getCalendarById(id) : null;
+    if (id && (!cal || !cal.isOwnedByMe())) throw new Error(course.title + ': 연결 계정의 캘린더 접근 권한을 확인하세요.');
+    if (!id) {cal = CalendarApp.createCalendar(course.title,{timeZone:'Asia/Seoul'});id = cal.getId();props.setProperty(key,id);}
+    if (cal.getName() !== course.title) cal.setName(course.title);
+    if (course.calendarId !== id) bookingRequest({action:'bind-calendar',courseId:course.id,calendarId:id});
+    course.calendarId = id;
     props.setProperty(key,id);
-    console.log(course.title + ' → ' + cal.getName());
   }
-  refreshCourseCalendars(); enableCalendarSync();
+  for (const course of catalog.archived || []) {
+    const cal = CalendarApp.getCalendarById(course.calendarId);
+    if (!cal || !cal.isOwnedByMe() || cal.isMyPrimaryCalendar()) throw new Error('삭제한 수업의 전용 캘린더 권한을 확인하세요.');
+    cal.setSelected(false);cal.setHidden(true);
+  }
+}
+function enableCourseCalendars() {
+  refreshCourseCalendars();enableCalendarSync();
 }
 function refreshCourseCalendars() {
   const catalog = bookingRequest({action:'catalog'}), props = PropertiesService.getScriptProperties();
   const previous = JSON.parse(props.getProperty('course_calendar_history') || '[]');
+  reconcileCourseCalendars(catalog);
   const courses = (catalog.courses || []).filter(course => course.calendarId);
   props.setProperty('course_calendar_bindings',JSON.stringify(courses));
   props.setProperty('course_calendar_history',JSON.stringify(Array.from(new Set(previous.concat(courses.map(course => course.calendarId))))));
@@ -115,7 +121,8 @@ function doPost(e) {
   try {
     const p = JSON.parse(e.postData.contents);
     if (p.token !== BOOKING_TOKEN) throw new Error('인증 코드가 일치하지 않습니다.');
-    if (p.action === 'diagnose') return ContentService.createTextOutput(JSON.stringify({ok:true,version:7,simpleBookingEnabled:!!PropertiesService.getScriptProperties().getProperty('simple_booking_calendar_id')})).setMimeType(ContentService.MimeType.JSON);
+    if (p.action === 'sync-courses') {const guard=LockService.getScriptLock();guard.waitLock(25000);try{refreshCourseCalendars();return ContentService.createTextOutput(JSON.stringify({ok:true,version:8})).setMimeType(ContentService.MimeType.JSON);}finally{guard.releaseLock();}}
+    if (p.action === 'diagnose') return ContentService.createTextOutput(JSON.stringify({ok:true,version:8,simpleBookingEnabled:!!PropertiesService.getScriptProperties().getProperty('simple_booking_calendar_id')})).setMimeType(ContentService.MimeType.JSON);
     if (!/^[a-f0-9-]{36}$/.test(String(p.bookingId))) throw new Error('예약 ID 오류');
     const lock = LockService.getScriptLock(); lock.waitLock(25000);
     try {
@@ -151,7 +158,7 @@ function doPost(e) {
         if (Number.isInteger(colorIndex) && BOOKING_COLORS[colorIndex]) event.setColor(BOOKING_COLORS[colorIndex]);
         props.setProperty(snap, bookingSignature(event));
       } else throw new Error('지원하지 않는 동작');
-      return ContentService.createTextOutput(JSON.stringify({ok:true,version:7,bookingId:p.bookingId})).setMimeType(ContentService.MimeType.JSON);
+      return ContentService.createTextOutput(JSON.stringify({ok:true,version:8,bookingId:p.bookingId})).setMimeType(ContentService.MimeType.JSON);
     } finally { lock.releaseLock(); }
   } catch (err) {
     return ContentService.createTextOutput(JSON.stringify({ok:false,error:String(err.message || err)})).setMimeType(ContentService.MimeType.JSON);
