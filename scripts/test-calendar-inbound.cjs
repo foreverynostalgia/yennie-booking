@@ -13,6 +13,7 @@ sql.prepare('INSERT INTO students(id,nickname,name,school,grade,phone,pin_hash,a
 (async()=>{
  const eventId='test-12345@google.com',create={action:'create',eventId,title:'예약추가 | 별이 | 무료클리닉',date,start:'14:00',end:'15:00'};
  await call(create,401,'wrong');assert.equal(sql.prepare('SELECT COUNT(*) n FROM bookings').get().n,0);
+ await call({action:'heartbeat'});assert.equal(sql.prepare("SELECT webhook_encrypted FROM calendar_settings WHERE id='google_inbound_health'").get().webhook_encrypted,'ok');
  const saved=await call(create);assert.equal(saved.title,'김학생');assert.equal(sql.prepare('SELECT student_id,notification_status FROM bookings WHERE id=?').get(saved.bookingId).student_id,sid);
  assert.equal((await call(create)).bookingId,saved.bookingId);assert.equal(sql.prepare('SELECT COUNT(*) n FROM bookings').get().n,1);
  const another={...create,eventId:'another-12345@google.com',start:'14:30',end:'15:30'};await call(another,409);

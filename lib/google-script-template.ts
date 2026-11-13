@@ -75,7 +75,7 @@ function doPost(e) {
         if (Number.isInteger(colorIndex) && BOOKING_COLORS[colorIndex]) event.setColor(BOOKING_COLORS[colorIndex]);
         props.setProperty(snap, bookingSignature(event));
       } else throw new Error('지원하지 않는 동작');
-      return ContentService.createTextOutput(JSON.stringify({ok:true,version:4,bookingId:p.bookingId})).setMimeType(ContentService.MimeType.JSON);
+      return ContentService.createTextOutput(JSON.stringify({ok:true,version:5,bookingId:p.bookingId})).setMimeType(ContentService.MimeType.JSON);
     } finally { lock.releaseLock(); }
   } catch (err) {
     return ContentService.createTextOutput(JSON.stringify({ok:false,error:String(err.message || err)})).setMimeType(ContentService.MimeType.JSON);
@@ -139,5 +139,6 @@ function syncCalendarChanges() {
         props.setProperty('booking_snapshot_' + result.bookingId,bookingSignature(event));
       } catch (error) { console.error('새 일정 ' + event.getId() + ': ' + String(error)); }
     });
+    bookingRequest({action:'heartbeat'});
   } finally { lock.releaseLock(); }
 }`;

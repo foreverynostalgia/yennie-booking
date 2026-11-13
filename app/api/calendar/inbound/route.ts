@@ -15,7 +15,7 @@ import {waitUntil} from 'cloudflare:workers';
 import {notifyAdminPush} from '@/lib/admin-push';
 import {sendReservationAlimtalk} from '@/lib/alimtalk';
 
-type Change={action:'create'|'update'|'delete';eventId:string;bookingId?:string;title?:string;date?:string;start?:string;end?:string;attendance?:string};
+type Change={action:'create'|'update'|'delete'|'heartbeat';eventId:string;bookingId?:string;title?:string;date?:string;start?:string;end?:string;attendance?:string};
 const uuid=/^[a-f0-9-]{36}$/;
 const active="('confirmed','cancel_pending','change_pending')";
 const mapKey=async(id:string)=>'google_event_'+Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(id)))).map(x=>x.toString(16).padStart(2,'0')).join('');
@@ -86,6 +86,6 @@ export async function POST(req:NextRequest){
  const token=req.headers.get('x-ye-calendar-token')||'';
  if(!setting||!token||!safeEqual(token,setting.secret))return fail('연결 인증이 필요합니다.',401);
  if(Number(req.headers.get('content-length')||0)>4096)return fail('요청이 너무 큽니다.',413);
- try{const x=await req.json() as Change;return json({ok:true,...await apply(x)})}
+ try{const x=await req.json() as Change;if(x.action==='heartbeat'){await remember('google_inbound_health','ok');return json({ok:true})}return json({ok:true,...await apply(x)})}
  catch(e){const message=prerequisiteError(e)?prerequisiteMessage:e instanceof Error?e.message:'일정을 반영하지 못했습니다.';return fail(message,409)}
 }

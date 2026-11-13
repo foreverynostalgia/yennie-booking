@@ -78,6 +78,7 @@ export default function Admin(){
   useEffect(()=>{load().catch(()=>setAuthorized(false))},[]);
   useEffect(()=>{if(!edit&&!copiedCourse&&!title)setColor(courseColors[courses.length%courseColors.length])},[courses.length,edit,copiedCourse,title]);
   useLiveRefresh(load,authorized&&!busy);
+  useEffect(()=>{if(!authorized||role!=='owner')return;let stopped=false,running=false;async function retryCalendar(){if(stopped||running||document.visibilityState==='hidden')return;running=true;try{const state=await call('/api/admin/google-calendar');if(state.configured){for(let i=0;i<100&&!stopped;i++){const result=await call('/api/admin/google-calendar','POST',{});if(result.failed||!result.hasMore)break;}}}catch{/* The connection panel retains the concrete server error for inspection. */}finally{running=false}}retryCalendar();const timer=setInterval(retryCalendar,60000);return()=>{stopped=true;clearInterval(timer)}},[authorized,role]);
   useEffect(()=>{const tab=new URLSearchParams(window.location.search).get('tab');if(tab==='students'||tab==='calendar'||tab==='bookings'||tab==='requests'||tab==='settings')setView(tab)},[]);
   useEffect(()=>{if(authorized)document.querySelector('.admin-tabs .active')?.scrollIntoView({behavior:'smooth',block:'nearest',inline:'nearest'})},[view,authorized]);
   async function run(f:()=>Promise<void>){setBusy(true);setMessage('');try{await f();announceBookingChange()}catch(e){setMessage(e instanceof Error?e.message:'처리하지 못했습니다.')}finally{setBusy(false)}}
