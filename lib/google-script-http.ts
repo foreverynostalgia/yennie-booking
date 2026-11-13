@@ -1,7 +1,7 @@
 // Apps Script ContentService returns its JSON through a one-time Google redirect.
 // Only the initial request contains the shared secret or booking data.
 export async function requestGoogleScript(url:string,payload:Record<string,unknown>){
- const signal=AbortSignal.timeout(20000);
+ const signal=AbortSignal.timeout(60000);
  let response=await fetch(url,{method:'POST',redirect:'manual',signal,headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
  const hops:string[]=[];
  for(let i=0;[301,302,303,307,308].includes(response.status)&&i<4;i++){
