@@ -226,3 +226,6 @@ button:disabled{cursor:not-allowed}button:not(:disabled),summary{touch-action:ma
 .admin-course-layout .course-admin-row .row-actions{gap:6px}
 .admin-course-layout .course-admin-row .row-actions button{width:auto;height:32px;min-height:32px;padding:5px 11px;font-size:13px;line-height:20px;border-radius:7px;box-shadow:none}
 @media(max-width:480px){.record-selection-bar{gap:8px;padding:10px}.record-selection-actions{gap:5px}.record-selection-bar .record-selection-actions button{padding:5px 8px}.admin-course-layout .course-admin-row .row-actions button{min-height:36px;height:36px}}
+
+/* Course list and editor are separate screens. */
+.admin-course-page{min-width:0}.course-page-toolbar{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin:20px 0 16px}.course-page-toolbar h2{margin:0;font-size:22px}.course-page-toolbar .row-actions{display:flex;flex-wrap:wrap;gap:8px;margin:0}.course-page-toolbar button{height:36px;min-height:36px;padding:6px 13px;font-size:14px}.course-list-only{display:block;width:100%}.admin-course-page>.course-editor{width:100%;max-width:900px;margin:0 auto}.admin-course-page .course-list-only .admin-panel{width:100%}@media(max-width:600px){.course-page-toolbar .row-actions{width:100%}.course-page-toolbar button{min-height:40px;height:auto}.admin-course-page>.course-editor{max-width:none}}
