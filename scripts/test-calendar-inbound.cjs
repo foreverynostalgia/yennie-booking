@@ -38,5 +38,14 @@ sql.prepare('INSERT INTO students(id,nickname,name,school,grade,phone,pin_hash,a
  assert.equal(sql.prepare('SELECT attendance FROM bookings WHERE id=?').get(saved.bookingId).attendance,'excused');
  await call({...create,eventId:'new-12345@google.com',start:'16:00',end:'17:00'});
  assert.equal(sql.prepare('SELECT COUNT(*) n FROM bookings WHERE status=\'confirmed\'').get().n,1);
+ const catalog=await call({action:'catalog'});const colorId=catalog.courses.find(c=>c.title==='무료클리닉').colorId;
+ const simple={action:'create',eventId:'simple-12345@google.com',nickname:'별이',colorId,date:'2099-04-12',start:'14:00',end:'15:00'};
+ await call({...simple,colorId:''},409);await call({...simple,nickname:'없는학생'},409);
+ sql.prepare("INSERT INTO courses(id,title,day,start,end,capacity,weekly_limit,schedules,target_grades,active,color) SELECT 'duplicate','다른수업',day,start,end,capacity,weekly_limit,schedules,target_grades,active,color FROM courses WHERE id=?").run(cid);
+ // Match the exact Google color even for legacy fallback colors.
+ sql.prepare("UPDATE courses SET color='#347BB2' WHERE id IN (?, 'duplicate')").run(cid);
+ await call({...simple,colorId:'7'},409);sql.prepare("DELETE FROM courses WHERE id='duplicate'").run();
+ const simpleSaved=await call({...simple,colorId:'7'});assert.equal((await call({...simple,colorId:'7'})).bookingId,simpleSaved.bookingId);
+ assert.equal(sql.prepare('SELECT course_id FROM bookings WHERE id=?').get(simpleSaved.bookingId).course_id,cid);
  console.log('PASS: signed calendar callback; explicit nickname/class creation; idempotent retry; time changes; block rejection; deletion and rebooking');
 })().catch(e=>{console.error(e);process.exitCode=1});

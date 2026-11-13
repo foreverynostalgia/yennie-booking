@@ -5,6 +5,38 @@ const BOOKING_SITE = '__BOOKING_SITE__';
 const BOOKING_MARKER = 'YEBOOKING:';
 const BOOKING_COLORS = [CalendarApp.EventColor.PALE_BLUE, CalendarApp.EventColor.PALE_GREEN, CalendarApp.EventColor.MAUVE, CalendarApp.EventColor.PALE_RED, CalendarApp.EventColor.YELLOW, CalendarApp.EventColor.ORANGE, CalendarApp.EventColor.CYAN, CalendarApp.EventColor.GRAY, CalendarApp.EventColor.BLUE, CalendarApp.EventColor.GREEN, CalendarApp.EventColor.RED];
 
+// 한 번 실행하면 '학생 예약' 전용 캘린더를 연결하고 자동 동기화를 시작합니다.
+function enableSimpleBooking() {
+  const catalog = bookingRequest({action:'catalog'});
+  const props = PropertiesService.getScriptProperties();
+  let id = props.getProperty('simple_booking_calendar_id');
+  if (!id) {
+    const calendars = CalendarApp.getCalendarsByName('학생 예약');
+    if (calendars.length > 1) throw new Error('학생 예약 캘린더가 여러 개입니다. 같은 이름의 캘린더를 하나로 정리하세요.');
+    const cal = calendars[0] || CalendarApp.createCalendar('학생 예약', {timeZone:'Asia/Seoul'});
+    if (!cal.isOwnedByMe()) throw new Error('내 계정이 소유한 학생 예약 캘린더를 사용하세요.');
+    props.setProperty('simple_booking_calendar_id',cal.getId());
+  }
+  console.log('학생 예약 캘린더에서 닉네임 + 일정 색상으로 예약하세요. ' + JSON.stringify(catalog.courses));
+  enableCalendarSync();
+}
+function simpleBookingCalendar() {
+  const id = PropertiesService.getScriptProperties().getProperty('simple_booking_calendar_id');
+  if (!id) return null;
+  const cal = CalendarApp.getCalendarById(id);
+  if (!cal) throw new Error('학생 예약 캘린더에 접근할 수 없습니다.');
+  return cal;
+}
+function findBookingEvent(id) {
+  if (!id) return null;
+  const calendars = [simpleBookingCalendar(),CalendarApp.getDefaultCalendar()].filter(Boolean);
+  for (const cal of calendars) { const event = cal.getEventById(id); if (event) return event; }
+  return null;
+}
+function bookingRegistrationError(event,message) {
+  const description = String(event.getDescription() || '').replace(/(?:^|\n)예약 등록 오류:[^\n]*/g,'').trim();
+  event.setDescription([description,'예약 등록 오류: ' + String(message).replace(/[\r\n]/g,' ').slice(0,400)].filter(Boolean).join('\n'));
+}
 function authorizeCalendar() { return CalendarApp.getDefaultCalendar().getName(); }
 function bookingTime(date) { return Utilities.formatDate(date, 'Asia/Seoul', 'yyyy-MM-dd HH:mm').split(' '); }
 function bookingAttendanceLine(event) {
@@ -50,13 +82,14 @@ function doPost(e) {
   try {
     const p = JSON.parse(e.postData.contents);
     if (p.token !== BOOKING_TOKEN) throw new Error('인증 코드가 일치하지 않습니다.');
+    if (p.action === 'diagnose') return ContentService.createTextOutput(JSON.stringify({ok:true,version:6,simpleBookingEnabled:!!PropertiesService.getScriptProperties().getProperty('simple_booking_calendar_id')})).setMimeType(ContentService.MimeType.JSON);
     if (!/^[a-f0-9-]{36}$/.test(String(p.bookingId))) throw new Error('예약 ID 오류');
     const lock = LockService.getScriptLock(); lock.waitLock(25000);
     try {
-      const cal = CalendarApp.getDefaultCalendar(), props = PropertiesService.getScriptProperties();
+      const cal = simpleBookingCalendar() || CalendarApp.getDefaultCalendar(), props = PropertiesService.getScriptProperties();
       const key = 'booking_' + p.bookingId, snap = 'booking_snapshot_' + p.bookingId;
       const eventId = props.getProperty(key);
-      let event = eventId ? cal.getEventById(eventId) : null;
+      let event = findBookingEvent(eventId);
       if (p.action === 'delete') {
         if (event) event.deleteEvent();
         props.deleteProperty(key); props.deleteProperty(snap);
@@ -75,7 +108,7 @@ function doPost(e) {
         if (Number.isInteger(colorIndex) && BOOKING_COLORS[colorIndex]) event.setColor(BOOKING_COLORS[colorIndex]);
         props.setProperty(snap, bookingSignature(event));
       } else throw new Error('지원하지 않는 동작');
-      return ContentService.createTextOutput(JSON.stringify({ok:true,version:5,bookingId:p.bookingId})).setMimeType(ContentService.MimeType.JSON);
+      return ContentService.createTextOutput(JSON.stringify({ok:true,version:6,bookingId:p.bookingId})).setMimeType(ContentService.MimeType.JSON);
     } finally { lock.releaseLock(); }
   } catch (err) {
     return ContentService.createTextOutput(JSON.stringify({ok:false,error:String(err.message || err)})).setMimeType(ContentService.MimeType.JSON);
@@ -96,7 +129,7 @@ function syncCalendarChanges() {
     const all = props.getProperties();
     // The known event IDs are checked directly so moving an event out of the scan window is still seen.
     Object.keys(all).filter(key => /^booking_[a-f0-9-]{36}$/.test(key)).forEach(key => {
-      const id = key.slice(8), event = cal.getEventById(all[key]);
+      const id = key.slice(8), event = findBookingEvent(all[key]);
       try {
         if (!event) {
           bookingRequest({action:'delete',eventId:all[key],bookingId:id});
@@ -118,7 +151,9 @@ function syncCalendarChanges() {
     });
     // New events must use an explicit title; ordinary personal calendar events are untouched.
     const from = new Date(Date.now() - 30 * 86400000), until = new Date(Date.now() + 365 * 86400000);
-    const events = cal.getEvents(from,until);
+    const simple = simpleBookingCalendar(), simpleEvents = simple ? simple.getEvents(from,until) : [];
+    const simpleIds = new Set(simpleEvents.map(event => event.getId()));
+    const events = Array.from(new Map(cal.getEvents(from,until).concat(simpleEvents).map(event => [event.getId(),event])).values());
     // Recover a newly added event if a previous run stopped after the Site accepted it.
     events.forEach(event => {
       const id = bookingIdFrom(event);
@@ -127,17 +162,20 @@ function syncCalendarChanges() {
         props.setProperty('booking_snapshot_' + id,bookingSignature(event));
       }
     });
-    events.filter(event => /^예약추가\s*\|/.test(event.getTitle()) && !bookingIdFrom(event)).forEach(event => {
+    events.filter(event => !bookingIdFrom(event) && (/^예약추가\s*\|/.test(event.getTitle()) || simpleIds.has(event.getId()))).forEach(event => {
       try {
+        if (event.isAllDayEvent()) throw new Error('종일 일정 대신 시작·종료 시간을 설정하세요.');
+        if (event.isRecurringEvent()) throw new Error('반복 일정 대신 예약 한 건씩 개별 일정으로 만들어 주세요.');
         const start = bookingTime(event.getStartTime()), end = bookingTime(event.getEndTime());
         if (start[0] !== end[0]) throw new Error('하루 안에서 끝나는 일정만 예약할 수 있습니다.');
-        const result = bookingRequest({action:'create',eventId:event.getId(),title:event.getTitle(),date:start[0],start:start[1],end:end[1]});
-        event.setDescription([event.getDescription(),BOOKING_MARKER + result.bookingId].filter(Boolean).join('\n'));
+        const legacy = /^예약추가\s*\|/.test(event.getTitle());
+        const result = bookingRequest(Object.assign({action:'create',eventId:event.getId(),title:event.getTitle(),date:start[0],start:start[1],end:end[1]}, legacy ? {} : {nickname:event.getTitle().trim(),colorId:String(event.getColor() || '')}));
+        event.setDescription([String(event.getDescription() || '').replace(/(?:^|\n)예약 등록 오류:[^\n]*/g,'').trim(),BOOKING_MARKER + result.bookingId].filter(Boolean).join('\n'));
         if (result.title) event.setTitle(result.title);
         if (result.colorId && BOOKING_COLORS[Number(result.colorId)-1]) event.setColor(BOOKING_COLORS[Number(result.colorId)-1]);
         props.setProperty('booking_' + result.bookingId,event.getId());
         props.setProperty('booking_snapshot_' + result.bookingId,bookingSignature(event));
-      } catch (error) { console.error('새 일정 ' + event.getId() + ': ' + String(error)); }
+      } catch (error) { bookingRegistrationError(event,error.message || error); console.error('새 일정 ' + event.getId() + ': ' + String(error)); }
     });
     bookingRequest({action:'heartbeat'});
   } finally { lock.releaseLock(); }

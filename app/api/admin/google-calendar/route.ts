@@ -1,3 +1,4 @@
+import {googleEventColor} from '@/lib/course-colors';
 import {requestGoogleScript} from '@/lib/google-script-http';
 import {NextRequest} from 'next/server';
 import {admin,db,fail,json,protectedMutation} from '@/lib/server';
@@ -8,9 +9,10 @@ export async function GET(req:NextRequest){
  if(!await admin(req))return fail('관리자 로그인이 필요합니다.',401);
  const rows=await db().prepare("SELECT calendar_sync_status AS status,COUNT(*) AS count FROM bookings WHERE status!='cancelled' AND date>=? GROUP BY calendar_sync_status").bind(new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date())).all<{status:string;count:number}>();
  const failed=await db().prepare("SELECT calendar_sync_error AS error FROM bookings WHERE calendar_sync_status='failed' AND calendar_sync_error IS NOT NULL ORDER BY date DESC LIMIT 1").first<{error:string}>();
+ const courses=await db().prepare('SELECT id,title,color FROM courses WHERE active=1 ORDER BY title').all<{id:string;title:string;color:string}>();
  const inbound=await db().prepare("SELECT MAX(updated_at) AS at FROM calendar_settings WHERE id LIKE 'google_event_%' OR id='google_inbound_health'").first<{at:string|null}>();
  const protocol=await db().prepare("SELECT webhook_encrypted AS version FROM calendar_settings WHERE id='google_script_version'").first<{version:string}>();
- const script=!!await getScriptConnection(),make=script?false:!!await getMakeWebhook();return json({scriptVersion:protocol?Number(protocol.version):null,lastInboundAt:inbound?.at||null,configured:script||make||googleCalendarConfigured(),mode:script?'script':make?'make':googleCalendarConfigured()?'service':'none',counts:rows.results,lastError:failed?.error||null});
+ const script=!!await getScriptConnection(),make=script?false:!!await getMakeWebhook();return json({courseColors:courses.results.map(c=>({title:c.title,colorId:googleEventColor(c.color,c.id)})),scriptVersion:protocol?Number(protocol.version):null,lastInboundAt:inbound?.at||null,configured:script||make||googleCalendarConfigured(),mode:script?'script':make?'make':googleCalendarConfigured()?'service':'none',counts:rows.results,lastError:failed?.error||null});
 }
 export async function POST(req:NextRequest){
  if(!await protectedMutation(req))return fail('관리자 로그인이 필요합니다.',401);

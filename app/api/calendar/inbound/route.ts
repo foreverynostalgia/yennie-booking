@@ -15,7 +15,7 @@ import {waitUntil} from 'cloudflare:workers';
 import {notifyAdminPush} from '@/lib/admin-push';
 import {sendReservationAlimtalk} from '@/lib/alimtalk';
 
-type Change={action:'create'|'update'|'delete'|'heartbeat';eventId:string;bookingId?:string;title?:string;date?:string;start?:string;end?:string;attendance?:string};
+type Change={action:'create'|'update'|'delete'|'heartbeat'|'catalog';eventId:string;bookingId?:string;title?:string;date?:string;start?:string;end?:string;attendance?:string;nickname?:string;colorId?:string};
 const uuid=/^[a-f0-9-]{36}$/;
 const active="('confirmed','cancel_pending','change_pending')";
 const mapKey=async(id:string)=>'google_event_'+Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(id)))).map(x=>x.toString(16).padStart(2,'0')).join('');
@@ -27,11 +27,22 @@ async function apply(x:Change){
  const key=await mapKey(x.eventId),link=await mapped(key);
  if(x.action==='create'){
   if(link){const found=await db().prepare('SELECT b.name,b.attendance,c.calendar_label,c.color,b.course_id FROM bookings b JOIN courses c ON c.id=b.course_id WHERE b.id=?').bind(link.bookingId).first<any>();return {bookingId:link.bookingId,title:found?calendarBookingTitle(found.name,found.calendar_label,found.attendance):undefined,colorId:found?googleEventColor(found.color,found.course_id):undefined};}
+  const simple=x.nickname!==undefined;
   const parts=String(x.title||'').split('|').map(s=>s.trim());
-  if(parts.length!==3||parts[0]!=='예약추가'||!parts[1]||!parts[2])throw Error('새 일정 제목을 예약추가 | 닉네임 | 수업명 형식으로 입력해 주세요.');
-  const student=await db().prepare('SELECT * FROM students WHERE nickname=? AND active=1').bind(parts[1]).first<any>();
-  const course=await db().prepare('SELECT * FROM courses WHERE title=? AND active=1').bind(parts[2]).all<any>();
-  if(!student||course.results.length!==1)throw Error('등록된 닉네임과 정확한 수업명 한 개를 확인해 주세요.');
+  if(!simple&&(parts.length!==3||parts[0]!=='예약추가'||!parts[1]||!parts[2]))throw Error('새 일정 제목을 예약추가 | 닉네임 | 수업명 형식으로 입력해 주세요.');
+  const nickname=simple?String(x.nickname||'').trim():parts[1];
+  if(!nickname||nickname.length>80)throw Error('등록된 학생 닉네임을 입력해 주세요.');
+  const students=await db().prepare('SELECT * FROM students WHERE nickname=? AND active=1').bind(nickname).all<any>();
+  if(students.results.length!==1)throw Error('학생 닉네임이 없거나 중복됩니다. 학생 관리에서 정확한 닉네임을 확인하세요.');
+  const student=students.results[0];
+  let course;
+  if(simple){
+   if(!/^(?:[1-9]|10|11)$/.test(String(x.colorId||'')))throw Error('일정에 수업별 색상을 직접 선택해 주세요. 기본 캘린더 색상은 사용할 수 없습니다.');
+   const activeCourses=await db().prepare('SELECT * FROM courses WHERE active=1').all<any>();
+   course={results:activeCourses.results.filter(c=>googleEventColor(c.color,c.id)===String(x.colorId))};
+   if(course.results.length!==1)throw Error(course.results.length?'같은 구글 색상의 수업이 여러 개입니다. 수업 관리에서 서로 다른 색상을 지정하세요.':'선택한 색상에 연결된 수업이 없습니다. 사이트의 색상 안내를 확인하세요.');
+  }else course=await db().prepare('SELECT * FROM courses WHERE title=? AND active=1').bind(parts[2]).all<any>();
+  if(course.results.length!==1)throw Error('정확한 수업명 한 개를 확인해 주세요.');
   const c=course.results[0],date=String(x.date||''),start=String(x.start||''),end=String(x.end||'');
   if(!validAdminBookingSchedule(date,start,end)||new Date(`${date}T${start}:00+09:00`).getTime()<=Date.now())throw Error('미래의 유효한 날짜와 시간을 설정해 주세요.');
   if(!acceptsGrade(c.target_grades,student.grade))throw Error('학생 학년의 대상 수업이 아닙니다.');
@@ -86,6 +97,6 @@ export async function POST(req:NextRequest){
  const token=req.headers.get('x-ye-calendar-token')||'';
  if(!setting||!token||!safeEqual(token,setting.secret))return fail('연결 인증이 필요합니다.',401);
  if(Number(req.headers.get('content-length')||0)>4096)return fail('요청이 너무 큽니다.',413);
- try{const x=await req.json() as Change;if(x.action==='heartbeat'){await remember('google_inbound_health','ok');return json({ok:true})}return json({ok:true,...await apply(x)})}
+ try{const x=await req.json() as Change;if(x.action==='catalog'){const rows=await db().prepare('SELECT id,title,color FROM courses WHERE active=1 ORDER BY title').all<any>();return json({ok:true,courses:rows.results.map(c=>({title:c.title,colorId:googleEventColor(c.color,c.id)}))})}if(x.action==='heartbeat'){await remember('google_inbound_health','ok');return json({ok:true})}return json({ok:true,...await apply(x)})}
  catch(e){const message=prerequisiteError(e)?prerequisiteMessage:e instanceof Error?e.message:'일정을 반영하지 못했습니다.';return fail(message,409)}
 }
