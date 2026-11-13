@@ -219,3 +219,10 @@ button:disabled{cursor:not-allowed}button:not(:disabled),summary{touch-action:ma
 .record-selection-bar{min-width:0}.record-selection-bar>*{max-width:100%}.record-selection-bar label{flex-wrap:wrap}
 .google-calendar-settings .row-actions{display:flex;flex-wrap:wrap;gap:10px;height:auto;margin-bottom:16px}
 .google-calendar-settings .row-actions button{white-space:normal;max-width:100%;height:auto;min-height:42px}
+
+/* Compact course tools share the selection toolbar. */
+.record-selection-actions{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-left:auto}
+.record-selection-bar .record-selection-actions button{margin:0;width:auto;min-width:0;height:32px;min-height:32px;padding:5px 10px;font-size:12px;line-height:20px;border-radius:7px;white-space:nowrap}
+.admin-course-layout .course-admin-row .row-actions{gap:6px}
+.admin-course-layout .course-admin-row .row-actions button{width:auto;height:32px;min-height:32px;padding:5px 11px;font-size:13px;line-height:20px;border-radius:7px;box-shadow:none}
+@media(max-width:480px){.record-selection-bar{gap:8px;padding:10px}.record-selection-actions{gap:5px}.record-selection-bar .record-selection-actions button{padding:5px 8px}.admin-course-layout .course-admin-row .row-actions button{min-height:36px;height:36px}}
