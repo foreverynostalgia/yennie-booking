@@ -19,3 +19,13 @@ export async function DELETE(req:NextRequest){
  if(!result.meta.changes)return fail('다른 수업의 선행 수업으로 사용 중입니다. 선행 조건을 먼저 해제하거나 연결된 수업을 함께 선택하세요.',409);
  waitUntil(syncCourseCalendarLifecycle());return json({ok:true,deletedIds:ids});
 }
+
+// Change only the display prefix; leave calendar ownership and schedules intact.
+export async function PATCH(req:NextRequest){
+ if(!await protectedMutation(req))return fail('관리자 로그인이 필요합니다.',401);
+ try{const x=await req.json() as {id?:unknown;calendarLabel?:unknown};if(typeof x.id!=='string'||typeof x.calendarLabel!=='string'||!validCalendarLabel(x.calendarLabel.trim()))return fail('수업과 구분 글자를 확인하세요.');
+ const exists=await db().prepare('SELECT id FROM courses WHERE id=? AND active>=0').bind(x.id).first();if(!exists)return fail('수업을 찾을 수 없습니다.',404);
+ await db().batch([db().prepare('UPDATE courses SET calendar_label=? WHERE id=?').bind(x.calendarLabel.trim(),x.id),db().prepare("UPDATE bookings SET calendar_sync_status='pending',calendar_sync_error=NULL WHERE course_id=? AND status!='cancelled' AND date>=date('now','+9 hours')").bind(x.id)]);
+ return json({ok:true});
+ }catch{return fail('구분 글자를 저장하지 못했습니다.',503)}
+}
