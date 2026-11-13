@@ -19,6 +19,7 @@ export async function requestGoogleScript(url:string,payload:Record<string,unkno
  const htmlTitle=/<title[^>]*>([^<]*)<\/title>/i.exec(raw)?.[1]?.replace(/&[^;]+;/g,' ').trim().slice(0,100)||null;
  if(!response.ok)throw Error(`Google Script 응답 오류 (HTTP ${response.status}${htmlTitle?'; '+htmlTitle:''})`);
  if(!result){
+  if(/Script function not found:\s*doPost/i.test(raw))throw Error('Google 배포본에 doPost 함수가 없습니다. 이 사이트에서 준비한 전체 연동 코드를 Google Apps Script에 붙여넣고 새 버전으로 배포한 웹 앱 URL을 연결해 주세요.');
   const detail=raw.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,' ').replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi,' ').replace(/<[^>]+>/g,' ').replace(/&[^;]+;/g,' ').replace(/https?:\/\/[^\s]+/g,'[Google URL]').split(String(payload.token||'__no_token__')).join('[redacted]').replace(/\s+/g,' ').trim().slice(0,450);
   const reason=/accounts\.google\.com|ServiceLogin|sign in|로그인/i.test(raw)?'Google 로그인 페이지가 반환됐습니다.':/unable to open|파일을 열|page not found|찾을 수 없/i.test(raw)?'Google에서 배포 파일을 열지 못했습니다.':'JSON 대신 HTML 또는 다른 형식의 응답이 반환됐습니다.';
   throw Error(`Google Script: ${reason} (HTTP ${response.status}; ${contentType.split(';')[0]||'형식 없음'}${htmlTitle?'; '+htmlTitle:''}) ${detail}`);
