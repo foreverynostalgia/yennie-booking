@@ -1,7 +1,7 @@
 import {prerequisiteError,prerequisiteMessage} from '@/lib/course-prerequisite';
 import {validAdminBookingSchedule} from '@/lib/admin-booking-schedule';
 import {blockAppliesSql} from '@/lib/reservation-blocks';
-import {queueGoogleCalendarSync} from '@/lib/google-calendar';
+import {queueGoogleCalendarSync,syncGoogleCalendarBooking} from '@/lib/google-calendar';
 import {NextRequest} from 'next/server';
 import {createBooking} from '@/app/api/bookings/route';
 import {db,fail,json,phone,protectedMutation} from '@/lib/server';
@@ -11,7 +11,7 @@ import {peakOccupancySql} from '@/lib/booking-slots';
 import {validDate} from '@/lib/course-period';
 export async function POST(req:NextRequest){
  if(!await protectedMutation(req))return fail('관리자 로그인이 필요합니다.',401);
- try{const x=await req.clone().json() as Record<string,unknown>;const memo=String(x.memo||'').trim();if(memo.length>2000)return fail('메모는 2,000자 이내로 입력해 주세요.');return createBooking(req,memo,x.overrideWeeklyLimit===true,true)}catch(e){if(prerequisiteError(e))return fail(prerequisiteMessage,409);return fail('예약 정보를 확인해 주세요.')}
+ try{const x=await req.clone().json() as Record<string,unknown>;const memo=String(x.memo||'').trim();if(memo.length>2000)return fail('메모는 2,000자 이내로 입력해 주세요.');const waitCalendar=x.waitCalendar===true;const response=await createBooking(req,memo,x.overrideWeeklyLimit===true,true,waitCalendar);if(!waitCalendar||!response.ok)return response;const result=await response.json() as {id:string;[key:string]:unknown};await syncGoogleCalendarBooking(result.id);const calendar=await db().prepare('SELECT calendar_sync_status AS status,calendar_sync_error AS error FROM bookings WHERE id=?').bind(result.id).first();return json({...result,calendar},201)}catch(e){if(prerequisiteError(e))return fail(prerequisiteMessage,409);return fail('예약 정보를 확인해 주세요.')}
 }
 export async function PATCH(req:NextRequest){
  if(!await protectedMutation(req))return fail('관리자 로그인이 필요합니다.',401);
