@@ -33,7 +33,7 @@ async function eventId(id:string){const digest=await crypto.subtle.digest('SHA-2
 async function sendCalendarRequest(method:string,url:string,accessToken:string,body?:unknown){
  return fetch(url,{method,headers:{Authorization:`Bearer ${accessToken}`,...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined});
 }
-export async function syncGoogleCalendarBooking(id:string){
+export async function syncGoogleCalendarBooking(id:string,options:{preserveColor?:boolean}={}){
  const booking=await db().prepare('SELECT b.id,b.course_id,c.color,c.calendar_label,b.date,b.name,b.school,b.grade,b.status,b.attendance,b.requested_date,b.requested_start,b.requested_end,c.title,COALESCE(b.time_start,c.start) AS start,COALESCE(b.time_end,c.end) AS end FROM bookings b JOIN courses c ON c.id=b.course_id WHERE b.id=?').bind(id).first<CalendarBooking>();
  if(!booking)return;
  try{
@@ -42,7 +42,7 @@ export async function syncGoogleCalendarBooking(id:string){
    await db().prepare("UPDATE bookings SET calendar_sync_status='unconfigured',calendar_sync_error='구글 캘린더 연결 정보가 필요합니다.' WHERE id=?").bind(id).run();return;
   }
   if(script||makeWebhook){
-   const payload={bookingId:booking.id,bookingMarker:`YEBOOKING:${booking.id}`,action:booking.status==='cancelled'?'delete':'upsert',eventColor:googleEventColor(booking.color,booking.course_id),title:booking.title,studentName:booking.name,name:calendarBookingTitle(booking.name,booking.calendar_label,booking.attendance),eventTitle:calendarBookingTitle(booking.name,booking.calendar_label,booking.attendance),school:booking.school,grade:booking.grade,date:booking.date,start:booking.start,end:booking.end,status:booking.status,attendance:attendanceText[booking.attendance]||'미확인',requestedDate:booking.requested_date,requestedStart:booking.requested_start,requestedEnd:booking.requested_end,timeZone:timezone};
+   const payload={bookingId:booking.id,bookingMarker:`YEBOOKING:${booking.id}`,action:booking.status==='cancelled'?'delete':'upsert',...(options.preserveColor?{}:{eventColor:googleEventColor(booking.color,booking.course_id)}),title:booking.title,studentName:booking.name,name:calendarBookingTitle(booking.name,booking.calendar_label,booking.attendance),eventTitle:calendarBookingTitle(booking.name,booking.calendar_label,booking.attendance),school:booking.school,grade:booking.grade,date:booking.date,start:booking.start,end:booking.end,status:booking.status,attendance:attendanceText[booking.attendance]||'미확인',requestedDate:booking.requested_date,requestedStart:booking.requested_start,requestedEnd:booking.requested_end,timeZone:timezone};
    if(script){
     const {result}=await requestGoogleScript(script.url,{...payload,token:script.secret,calendarId:await courseCalendarId(booking.course_id)});
     if(!result.ok)throw new Error(`Google Script: ${result.error||'일정 반영을 확인하지 못했습니다.'}`);
@@ -65,7 +65,7 @@ export async function syncGoogleCalendarBooking(id:string){
   }else{
    const status=booking.status==='cancel_pending'?' · 취소 승인 대기':booking.status==='change_pending'?' · 변경 승인 대기':'';
    const description=[`학교: ${booking.school}`,`학년: ${booking.grade}`,`출결: ${attendanceText[booking.attendance]||'미확인'}`,booking.status==='change_pending'&&booking.requested_date?`변경 요청: ${booking.requested_date} ${booking.requested_start}–${booking.requested_end}`:'','옌쌤 과학 예약 사이트와 동기화된 일정입니다.'].filter(Boolean).join('\n');
-   const event={id:idForEvent,summary:calendarBookingTitle(booking.name,booking.calendar_label,booking.attendance),colorId:googleEventColor(booking.color,booking.course_id),description:[status.trim(),description].filter(Boolean).join('\n'),start:{dateTime:`${booking.date}T${booking.start}:00+09:00`,timeZone:timezone},end:{dateTime:`${booking.date}T${booking.end}:00+09:00`,timeZone:timezone},extendedProperties:{private:{siteBookingId:id}}};
+   const event={id:idForEvent,summary:calendarBookingTitle(booking.name,booking.calendar_label,booking.attendance),...(options.preserveColor?{}:{colorId:googleEventColor(booking.color,booking.course_id)}),description:[status.trim(),description].filter(Boolean).join('\n'),start:{dateTime:`${booking.date}T${booking.start}:00+09:00`,timeZone:timezone},end:{dateTime:`${booking.date}T${booking.end}:00+09:00`,timeZone:timezone},extendedProperties:{private:{siteBookingId:id}}};
    const response=await sendCalendarRequest('POST',base,accessToken,event);
    if(response.status===409){const update=await sendCalendarRequest('PATCH',`${base}/${idForEvent}`,accessToken,event);if(!update.ok)throw new Error(`Google 일정 변경 실패 (${update.status})`)}
    else if(!response.ok)throw new Error(`Google 일정 등록 실패 (${response.status})`);

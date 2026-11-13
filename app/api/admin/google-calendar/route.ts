@@ -18,8 +18,8 @@ export async function GET(req:NextRequest){
 export async function POST(req:NextRequest){
  if(!await protectedMutation(req))return fail('관리자 로그인이 필요합니다.',401);
  const connection=await getScriptConnection(),script=!!connection;
- const body=await req.json().catch(()=>({})) as {refresh?:boolean;diagnose?:boolean;bookingId?:string};
- if(body.bookingId!==undefined){if(!/^[a-f0-9-]{36}$/.test(body.bookingId))return fail('예약 ID를 확인하세요.');const exists=await db().prepare('SELECT id FROM bookings WHERE id=?').bind(body.bookingId).first();if(!exists)return fail('예약을 찾을 수 없습니다.',404);await syncGoogleCalendarBooking(body.bookingId);const row=await db().prepare('SELECT calendar_sync_status AS status,calendar_sync_error AS error FROM bookings WHERE id=?').bind(body.bookingId).first();return json({bookingId:body.bookingId,...row})}
+ const body=await req.json().catch(()=>({})) as {refresh?:boolean;diagnose?:boolean;bookingId?:string;preserveColor?:boolean};
+ if(body.bookingId!==undefined){if(!/^[a-f0-9-]{36}$/.test(body.bookingId))return fail('예약 ID를 확인하세요.');const exists=await db().prepare('SELECT id FROM bookings WHERE id=?').bind(body.bookingId).first();if(!exists)return fail('예약을 찾을 수 없습니다.',404);await syncGoogleCalendarBooking(body.bookingId,{preserveColor:body.preserveColor===true});const row=await db().prepare('SELECT calendar_sync_status AS status,calendar_sync_error AS error FROM bookings WHERE id=?').bind(body.bookingId).first();return json({bookingId:body.bookingId,...row})}
  if(body.diagnose===true){if(!connection)return fail('Google Script 연결 주소가 없습니다.',409);try{const {result,diagnostics}=await requestGoogleScript(connection.url,{token:connection.secret,action:'diagnose',bookingId:'diagnostic-not-a-booking'});return json({diagnostics,scriptResponse:result.error||null,version:result.version||null});}catch(e){return fail(e instanceof Error?e.message:'Google 연결 확인 실패',502)}}
  if(!script&&!await getMakeWebhook()&&!googleCalendarConfigured())return fail('구글 캘린더 연결 정보가 설정되지 않았습니다.',409);
  const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
