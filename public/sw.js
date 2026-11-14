@@ -1,9 +1,9 @@
 self.addEventListener('push',event=>{
- let message={title:'옌쌤 과학 예약 알림',body:'새 예약 내역을 확인해 주세요.',url:'/admin'};
+ let message={title:'YENNIE SENSE 예약 알림',body:'새 예약 내역을 확인해 주세요.',url:'/admin'};
  try{if(event.data)message={...message,...event.data.json()}}catch{}
  const url=new URL(message.url||'/admin',self.location.origin);
  if(url.origin!==self.location.origin)url.pathname='/admin';
- event.waitUntil(self.registration.showNotification(message.title,{body:message.body,icon:'/app-icon-192-ye-sci.png',badge:'/app-icon-192-ye-sci.png',tag:message.tag||undefined,data:{url:url.pathname+url.search}}));
+ event.waitUntil(self.registration.showNotification(message.title,{body:message.body,icon:'/yennie-icon.png?v=1',badge:'/yennie-icon.png?v=1',tag:message.tag||undefined,data:{url:url.pathname+url.search}}));
 });
 self.addEventListener('notificationclick',event=>{
  event.notification.close();const path=event.notification.data?.url||'/admin';
