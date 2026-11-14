@@ -250,3 +250,24 @@ button:disabled{cursor:not-allowed}button:not(:disabled),summary{touch-action:ma
 .student-shell [data-slot="button"][data-variant="default"]:hover:not(:disabled),.admin-shell [data-slot="button"][data-variant="default"]:hover:not(:disabled){background:#dfeff8;border-color:#245f82}
 @media(min-width:761px){.booking-course-panel .course-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.booking-course-panel .course-tile{padding:16px;gap:6px}.booking-course-panel .course-tile.selected{padding:15px}.booking-course-panel .course-tile strong{font-size:17px}}
 @media(max-width:760px){.booking-schedule-layout{grid-template-columns:minmax(0,1fr);gap:0;border:1px solid #dbe5ec;border-radius:14px;background:#fff;margin-bottom:20px;overflow:hidden}.booking-schedule-layout>.panel{border:0;border-radius:0;margin:0;padding:16px}.booking-schedule-layout>.booking-time-panel{border-top:1px solid #e1ebf2;background:#f8fcfe}.booking-date-panel h2,.booking-time-panel h2{font-size:18px;margin-bottom:12px}.booking-date-panel .calendar-head{margin-bottom:8px}.booking-date-panel .date-grid{gap:2px}.booking-date-panel .date-grid button{min-height:36px;font-size:14px}.booking-date-panel .weekday{padding:3px}.booking-time-panel .compact-time-picker{margin-bottom:8px}.booking-time-panel .clinic-booking-helper{font-size:12px;margin-bottom:10px}.booking-time-panel .empty{padding:4px 0;margin:0}.booking-time-panel .main-button{min-height:44px}.booking-time-panel .selected-booking-context{display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px;margin-bottom:10px;font-size:13px}}
+
+/* Reservation is a module of the YENNIE SENSE workspace. */
+.embedded-reservation{max-width:none;padding:0!important;margin:0;background:#f6f8fa;color:#233842;font-size:14px}
+.embedded-reservation>.admin-heading{display:none}
+.embedded-reservation .admin-overview{margin:0 0 18px;gap:12px}
+.embedded-reservation .overview-card{border-radius:12px;border-color:#e4ebee;min-height:90px;padding:16px 20px;background:#fff}
+.embedded-reservation .overview-card.attention{background:#edf6fc}
+.embedded-reservation .overview-card strong{font-size:28px}
+.embedded-reservation .tabs{position:static;background:transparent;border-color:#e4ebee;gap:4px;flex-wrap:wrap}
+.embedded-reservation .tabs button{font-size:13px;min-height:40px;padding:10px 12px;color:#71838b}
+.embedded-reservation .tabs button.active{color:#286585;background:#edf6fc;border-color:#397b9b}
+.embedded-reservation .panel{border:1px solid #e4ebee;border-radius:12px;box-shadow:none;padding:20px;margin-bottom:16px}
+.embedded-reservation .panel h2{font-size:19px}
+.embedded-reservation [data-slot="button"]{min-height:36px;padding:8px 12px;font-size:13px;border-radius:8px;line-height:1.4}
+.embedded-reservation input:not([type=checkbox]):not([type=radio]),.embedded-reservation select{min-height:40px;border-radius:8px}
+.embedded-reservation .admin-panel{padding:20px}
+.embedded-reservation .admin-tabs{margin-bottom:16px}
+.embedded-reservation .course-admin-row{padding:16px 0}
+body:has(.embedded-reservation){background:#f6f8fa}
+.student-shell,.student-hub{color:#233842}.student-shell .panel{border:1px solid #e4ebee;border-radius:12px;box-shadow:none}.student-shell .tabs button.active{background:#edf6fc;color:#286585;border-color:#397b9b}.student-shell .course-tile{border-radius:10px}.student-shell .intro h1{font-size:32px}.student-shell .top .logo strong{font-size:18px}
+@media(max-width:700px){.embedded-reservation .panel,.embedded-reservation .admin-panel{padding:14px}.embedded-reservation .overview-card{padding:12px;min-height:80px}.embedded-reservation .tabs{flex-wrap:nowrap}.embedded-reservation .tabs button{white-space:nowrap}.embedded-reservation .overview-card strong{font-size:24px}}

@@ -54,6 +54,7 @@ export default function Admin(){
  const [courseScreen,setCourseScreen]=useState<'list'|'editor'>('list');
  const [courseSelection,setCourseSelection]=useState<Set<string>>(()=>new Set());
  const [embedded,setEmbedded]=useState(false);useEffect(()=>{setEmbedded(new URLSearchParams(location.search).get('embedded')==='1')},[]);
+ useEffect(()=>{if(!embedded)return;let frame=0;const report=()=>{cancelAnimationFrame(frame);frame=requestAnimationFrame(()=>{const root=document.querySelector('.embedded-reservation');if(root)window.parent.postMessage({type:'yennie-reservation-height',height:Math.ceil(root.getBoundingClientRect().height)+24},window.location.origin)})};const observer=new ResizeObserver(report);const root=document.querySelector('.admin-shell');if(root)observer.observe(root);report();return()=>{observer.disconnect();cancelAnimationFrame(frame)}},[embedded]);
   const [username,setUsername]=useState(''),[password,setPassword]=useState('');
   const authRevision=useRef(0);
   const [authorized,setAuthorized]=useState(false),[alimtalkConfigured,setAlimtalkConfigured]=useState(false);
@@ -126,7 +127,7 @@ export default function Admin(){
     if(result.role!=='owner')throw new Error('관리자 권한을 확인하지 못했습니다. 다시 로그인해 주세요.');
     await load();
   });
-  return <main className="shell admin-shell">
+  return <main className={`shell admin-shell ${embedded?'embedded-reservation':''}`}>
     <header className="top" style={embedded?{display:'none'}:undefined}><div className="logo"><img className="logo-mark" src="/yennie-icon.png?v=1" alt="YENNIE SENSE" width={44} height={44}/><div><strong>YENNIE SENSE</strong><small>예약 관리자</small></div></div><a className="quiet-link" href="/">학생 페이지</a></header>
     {!authorized||role!=='owner'?<section className="panel login"><p className="eyebrow">ADMIN</p><h1>관리자 로그인</h1><label>관리자 아이디<Input value={username} onChange={e=>setUsername(e.target.value)} autoComplete="username"/></label><label>관리자 비밀번호<Input type="password" value={password} onChange={e=>setPassword(e.target.value)} autoComplete="current-password" onKeyDown={e=>e.key==='Enter'&&signIn()}/></label><Button className="main-button" disabled={busy} onClick={signIn}>로그인</Button>{message&&<p className="notice error" role="alert">{message}</p>}</section>:<>
       <section className="admin-heading"><div><p className="eyebrow">옌쌤 과학 · 관리자</p><h1>예약 관리</h1><p>{readOnly?'캘린더 조회와 학생 관리 권한이 있는 계정입니다.':'예약과 취소 요청을 한곳에서 확인하세요.'}</p></div><Button style={embedded?{display:'none'}:undefined} variant="outline" onClick={()=>run(async()=>{authRevision.current++;await call('/api/admin/logout','POST');setAuthorized(false);setRole(null);setCourses([]);setBookings([]);setPassword('')})}>로그아웃</Button></section>
