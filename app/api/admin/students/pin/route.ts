@@ -7,8 +7,9 @@ export async function GET(req:NextRequest){
  if(!await canManageStudents(req))return result({error:'PIN 확인은 학생 관리 권한이 있는 관리자만 가능합니다.'},403);
  try{
   const id=new URL(req.url).searchParams.get('id')||'';if(!id)return result({error:'학생을 선택해 주세요.'},400);
-  const row=await db().prepare('SELECT nickname,pin_hash,pin_encrypted FROM students WHERE id=?').bind(id).first<{nickname:string;pin_hash:string;pin_encrypted:string|null}>();
+  const row=await db().prepare('SELECT nickname,pin_hash,pin_encrypted,active FROM students WHERE id=?').bind(id).first<{nickname:string;pin_hash:string;pin_encrypted:string|null;active:number}>();
   if(!row)return result({error:'학생을 찾을 수 없습니다.'},404);
+  if(!row.active)return result({pin:null,disabled:true,message:'비활성 학생은 PIN을 사용할 수 없습니다.'});
   if(!row.pin_encrypted)return result({pin:null,message:'기존에 발급한 PIN은 다시 확인할 수 없습니다. PIN을 재발급하면 이후부터 확인할 수 있습니다.'});
   const pin=await decryptStudentPin(row.pin_encrypted,id);
   if(!await verifyPin(pin,row.pin_hash))throw new Error('저장된 PIN이 일치하지 않습니다.');

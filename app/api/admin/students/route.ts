@@ -27,7 +27,7 @@ export async function POST(req:NextRequest){
  if(!items.length||items.length>200)return fail('한 번에 1~200명을 등록해 주세요.');
  const rows:any[]=[],seen=new Set<string>(),identities=new Set<string>();
  for(let i=0;i<items.length;i++){
-  const a=items[i],nickname=normalizeNickname(a.nickname),name=String(a.name||'').trim(),school=String(a.school||'').trim(),grade=String(a.grade||'').trim(),p=phone(String(a.phone||'')),id=String(a.id||''),identity=name+'|'+p;
+  const a=items[i];if(a.enrollmentStatus!==undefined&&!['enrolled','withdrawn','prospective'].includes(a.enrollmentStatus))return fail('재원 상태를 확인해 주세요.');if(a.enrollmentStatus==='withdrawn')a.active=false;const nickname=normalizeNickname(a.nickname),name=String(a.name||'').trim(),school=String(a.school||'').trim(),grade=String(a.grade||'').trim(),p=phone(String(a.phone||'')),id=String(a.id||''),identity=name+'|'+p;
   if(!validNickname(nickname)||name.length<2||name.length>40||!school||school.length>80||!['중1','중2','중3','고1','고2','고3'].includes(grade)||!/^0\d{9,10}$/.test(p))return fail(`${i+1}행: 닉네임(한글·영문·숫자·_- 2~24자), 이름, 학교, 학년, 연락처를 확인해 주세요.`);
   if(seen.has(nickname)||identities.has(identity))return fail(`${i+1}행: 닉네임 또는 이름·연락처가 중복됩니다.`);seen.add(nickname);identities.add(identity);
   if(id&&items.length>1)return fail('수정은 학생별로 진행해 주세요.');
