@@ -9,11 +9,13 @@ export async function homeworkRows(student?:string){
  const tasks=rows.results.filter(t=>!student||JSON.parse(t.student_ids).includes(student));
  const subs=await db().prepare('SELECT * FROM homework_submissions'+(student?' WHERE student_id=?':'')).bind(...(student?[student]:[])).all<any>();
  const historyRows=await db().prepare('SELECT * FROM homework_submission_history'+(student?' WHERE student_id=?':'')+' ORDER BY submitted_at DESC,id DESC').bind(...(student?[student]:[])).all<any>();
+ const media=await db().prepare('SELECT id,mime,size,task_id,student_id FROM homework_files WHERE committed=1'+(student?' AND student_id=?':'')).bind(...(student?[student]:[])).all<any>();
  return tasks.map(t=>{const submissions=subs.results.filter(s=>s.task_id===t.id).map(s=>{
   const history=historyRows.results.filter(h=>h.task_id===t.id&&h.student_id===s.student_id).map(h=>({id:h.id,submitted_at:h.submitted_at,files:JSON.parse(h.file_ids)}));
   if(!history.length)history.push({id:'legacy',submitted_at:s.updated_at||s.submitted_at,files:JSON.parse(s.file_ids)});
+  const enrichedHistory=history.map(h=>({...h,media:h.files.map((id:string)=>{const f=media.results.find(f=>f.id===id&&f.task_id===t.id&&f.student_id===s.student_id);return {id,mime:f?.mime||'image/jpeg',size:f?.size||0}})}));
   const files=[...new Set(history.flatMap(h=>h.files))];
-  return {...s,files,history,status:homeworkStatus(t,s.submitted_at,s.override)};
+  return {...s,files,history:enrichedHistory,status:homeworkStatus(t,s.submitted_at,s.override)};
  });return {...t,student_ids:JSON.parse(t.student_ids),due_at:new Date(Date.parse(t.session_end)+72*3600000).toISOString(),submissions,...(student?{status:homeworkStatus(t,submissions[0]?.submitted_at||null,submissions[0]?.override),files:submissions[0]?.files||[],history:submissions[0]?.history||[],submitted_at:submissions[0]?.submitted_at||null}:{})}})
 }
 export async function sendHomeworkReminders(){
