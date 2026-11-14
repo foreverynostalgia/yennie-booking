@@ -54,6 +54,13 @@ export default function Admin(){
  const [courseScreen,setCourseScreen]=useState<'list'|'editor'>('list');
  const [courseSelection,setCourseSelection]=useState<Set<string>>(()=>new Set());
  const [embedded,setEmbedded]=useState(false);useEffect(()=>{setEmbedded(new URLSearchParams(location.search).get('embedded')==='1')},[]);
+ useEffect(()=>{
+  if(!embedded||window.parent===window)return;
+  let parentWindow:Window;try{parentWindow=window.parent;void parentWindow.document}catch{return}
+  let frame=0;const update=()=>{cancelAnimationFrame(frame);frame=requestAnimationFrame(()=>{const rect=window.frameElement?.getBoundingClientRect();if(!rect)return;const viewport=parentWindow.visualViewport;const top=viewport?.offsetTop||0,bottom=top+(viewport?.height||parentWindow.innerHeight);const visibleTop=Math.max(0,top-rect.top),visibleBottom=Math.min(window.innerHeight,bottom-rect.top);const height=Math.max(0,visibleBottom-visibleTop);document.documentElement.style.setProperty('--reservation-visible-center',`${visibleTop+height/2}px`);document.documentElement.style.setProperty('--reservation-visible-height',`${Math.max(120,height-32)}px`)})};
+  parentWindow.addEventListener('scroll',update,true);parentWindow.addEventListener('resize',update);parentWindow.visualViewport?.addEventListener('resize',update);parentWindow.visualViewport?.addEventListener('scroll',update);const observer=new ResizeObserver(update);if(window.frameElement)observer.observe(window.frameElement);update();return()=>{cancelAnimationFrame(frame);observer.disconnect();parentWindow.removeEventListener('scroll',update,true);parentWindow.removeEventListener('resize',update);parentWindow.visualViewport?.removeEventListener('resize',update);parentWindow.visualViewport?.removeEventListener('scroll',update)};
+ },[embedded]);
+
  useEffect(()=>{if(!embedded)return;let frame=0;const report=()=>{cancelAnimationFrame(frame);frame=requestAnimationFrame(()=>{const root=document.querySelector('.embedded-reservation');if(root)window.parent.postMessage({type:'yennie-reservation-height',height:Math.ceil(root.getBoundingClientRect().height)+24},window.location.origin)})};const observer=new ResizeObserver(report);const root=document.querySelector('.admin-shell');if(root)observer.observe(root);report();return()=>{observer.disconnect();cancelAnimationFrame(frame)}},[embedded]);
   const [username,setUsername]=useState(''),[password,setPassword]=useState('');
   const authRevision=useRef(0);
