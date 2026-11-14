@@ -36,3 +36,5 @@ export const homeworkPush=sqliteTable('homework_push',{id:text('id').primaryKey(
 export const homeworkReminders=sqliteTable('homework_reminders',{id:text('id').primaryKey(),status:text('status').notNull(),updatedAt:text('updated_at').notNull()});
 
 export const reviewClassAssignments=sqliteTable('review_class_assignments',{classId:text('class_id').primaryKey(),className:text('class_name').notNull(),reviewCourseIds:text('review_course_ids').notNull(),studentIds:text('student_ids').notNull(),updatedAt:text('updated_at').notNull()});
+
+export const homeworkSubmissionHistory=sqliteTable('homework_submission_history',{id:text('id').primaryKey(),taskId:text('task_id').notNull().references(()=>homeworkTasks.id),studentId:text('student_id').notNull().references(()=>students.id),fileIds:text('file_ids').notNull(),submittedAt:text('submitted_at').notNull()},t=>[uniqueIndex('homework_history_files_unique').on(t.taskId,t.studentId,t.fileIds)]);

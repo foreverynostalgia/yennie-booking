@@ -278,3 +278,7 @@ body:has(.embedded-reservation){background:#f6f8fa}
 /* Portaled dialogs follow the visible parent viewport, not a tall iframe. */
 body:has(.embedded-reservation) [data-slot="dialog-content"],body:has(.embedded-reservation) [data-slot="alert-dialog-content"]{position:fixed!important;top:var(--reservation-visible-top,16px)!important;max-height:var(--reservation-visible-height,calc(100dvh - 32px))!important;overflow-y:auto;overscroll-behavior:contain;left:50%!important;translate:none!important;transform:translateX(-50%)!important;margin:0!important;bottom:auto!important;animation:none!important}
 [data-slot="dialog-content"],[data-slot="alert-dialog-content"]{max-height:calc(100dvh - 32px);overflow-y:auto;overscroll-behavior:contain}
+
+.hw-capture label:first-child{grid-column:1/-1;border:1px solid #8bc9f0;background:#edf7fd;font-weight:700}.hw-capture label:last-child{grid-column:auto}.hw-history{margin:18px 0;padding:16px;border:1px solid #dfe8ed;border-radius:12px;background:#f8fbfd}.hw-history summary{cursor:pointer;font-weight:700}.hw-history ol{list-style:none;padding:0;margin:12px 0}.hw-history li{padding:12px 0;border-top:1px solid #dfe8ed}.hw-history time{font-size:13px;color:#657a8a}.hw-card button,.hw-card a{border:1px solid #cbdfe9}
+
+.hw-attach{margin:18px 0 12px}.hw-card .hw-file-input{display:none}.hw-attach-button{width:100%;min-height:48px;border:1px solid #8bc9f0!important;background:#edf7fd!important;color:#285b76;font-weight:700;font-size:15px}.hw-attach small{margin-top:8px;text-align:center}

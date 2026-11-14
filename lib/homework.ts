@@ -4,7 +4,18 @@ import {homeworkStatus} from '@/lib/homework-rules';
 import {makePushRequest,pushReady} from '@/lib/admin-push';
 export type Homework={id:string;title:string;class_name:string;session_end:string;next_start:string;student_ids:string;active:number};
 export async function taskForStudent(id:string,student:string){const t=await db().prepare('SELECT * FROM homework_tasks WHERE id=? AND active=1').bind(id).first<Homework>();return t&&JSON.parse(t.student_ids).includes(student)?t:null}
-export async function homeworkRows(student?:string){const rows=await db().prepare('SELECT * FROM homework_tasks WHERE active=1 ORDER BY session_end DESC LIMIT 1000').all<Homework>();const tasks=rows.results.filter(t=>!student||JSON.parse(t.student_ids).includes(student));const subs=await db().prepare('SELECT * FROM homework_submissions'+(student?' WHERE student_id=?':'')).bind(...(student?[student]:[])).all<any>();return tasks.map(t=>{const submissions=subs.results.filter(s=>s.task_id===t.id).map(s=>({...s,files:JSON.parse(s.file_ids),status:homeworkStatus(t,s.submitted_at,s.override)}));return {...t,student_ids:JSON.parse(t.student_ids),due_at:new Date(Date.parse(t.session_end)+72*3600000).toISOString(),submissions,...(student?{status:homeworkStatus(t,submissions[0]?.submitted_at||null,submissions[0]?.override),files:submissions[0]?.files||[],submitted_at:submissions[0]?.submitted_at||null}:{})}})}
+export async function homeworkRows(student?:string){
+ const rows=await db().prepare('SELECT * FROM homework_tasks WHERE active=1 ORDER BY session_end DESC LIMIT 1000').all<Homework>();
+ const tasks=rows.results.filter(t=>!student||JSON.parse(t.student_ids).includes(student));
+ const subs=await db().prepare('SELECT * FROM homework_submissions'+(student?' WHERE student_id=?':'')).bind(...(student?[student]:[])).all<any>();
+ const historyRows=await db().prepare('SELECT * FROM homework_submission_history'+(student?' WHERE student_id=?':'')+' ORDER BY submitted_at DESC,id DESC').bind(...(student?[student]:[])).all<any>();
+ return tasks.map(t=>{const submissions=subs.results.filter(s=>s.task_id===t.id).map(s=>{
+  const history=historyRows.results.filter(h=>h.task_id===t.id&&h.student_id===s.student_id).map(h=>({id:h.id,submitted_at:h.submitted_at,files:JSON.parse(h.file_ids)}));
+  if(!history.length)history.push({id:'legacy',submitted_at:s.updated_at||s.submitted_at,files:JSON.parse(s.file_ids)});
+  const files=[...new Set(history.flatMap(h=>h.files))];
+  return {...s,files,history,status:homeworkStatus(t,s.submitted_at,s.override)};
+ });return {...t,student_ids:JSON.parse(t.student_ids),due_at:new Date(Date.parse(t.session_end)+72*3600000).toISOString(),submissions,...(student?{status:homeworkStatus(t,submissions[0]?.submitted_at||null,submissions[0]?.override),files:submissions[0]?.files||[],history:submissions[0]?.history||[],submitted_at:submissions[0]?.submitted_at||null}:{})}})
+}
 export async function sendHomeworkReminders(){
  if(!pushReady())throw Error('서버 푸시 설정이 필요합니다.');let sent=0,failed=0,expired=0;const now=new Date().toISOString();
  const rows=await db().prepare(`SELECT t.id task_id,p.id,p.endpoint,p.p256dh,p.auth,p.student_id FROM homework_tasks t JOIN json_each(t.student_ids) j JOIN homework_push p ON p.student_id=j.value JOIN students s ON s.id=p.student_id LEFT JOIN homework_submissions h ON h.task_id=t.id AND h.student_id=p.student_id LEFT JOIN homework_reminders r ON r.id=t.id||':'||p.id WHERE t.active=1 AND s.active=1 AND t.session_end<? AND t.next_start>? AND h.task_id IS NULL AND (r.id IS NULL OR r.status='failed' OR (r.status='sending' AND r.updated_at<?)) ORDER BY t.session_end,p.id LIMIT 30`).bind(new Date(Date.now()-72*3600000).toISOString(),now,new Date(Date.now()-10*60000).toISOString()).all<any>();
