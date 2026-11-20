@@ -5,6 +5,9 @@ import type { ConnectorBinding } from "../lib/connector-contract.mjs";
 
 export default {
   async fetch(request: Request, env: Cloudflare.Env, ctx: ExecutionContext<{ CONNECTORS?: ConnectorBinding }>) {
+    // Moved to Cloudflare (2026-11-20): send every request to the same path on the new address.
+    const movedTo = 'https://yennie-booking.yenniesense.workers.dev';
+    if (movedTo) { const u = new URL(request.url); return Response.redirect(movedTo + u.pathname + u.search, 302); }
     const blocked=await guardRequest(request,env.DB);
     if(blocked)return securityHeaders(blocked,request);
     let binding = ctx.props?.CONNECTORS;
