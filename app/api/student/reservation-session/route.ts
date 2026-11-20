@@ -1,5 +1,6 @@
 import {NextRequest} from 'next/server';
 import {db,fail,json,sameOrigin} from '@/lib/server';
+import {refreshStudentPinCopy} from '@/lib/student-pin';
 import {normalizeNickname,validNickname,allowStudentLogin,verifyPin,type StudentRecord} from '@/lib/students';
 import {allowReservationVerification,setReservationScope,clearReservationScopes,reservationProfile} from '@/lib/reservation-session';
 export async function POST(req:NextRequest){
@@ -11,6 +12,7 @@ export async function POST(req:NextRequest){
  const stored=s?.pin_hash||'dummy:0000000000000000000000000000000000000000000000000000000000000000';
  const correct=await verifyPin(credential,stored);
  if(!s||!correct)return fail('닉네임과 PIN을 확인해 주세요.',401);
+ await refreshStudentPinCopy(s,credential,db());
  let response=clearReservationScopes(json({student:reservationProfile(s,true)}));response=await setReservationScope(response,req,s,'booking');return setReservationScope(response,req,s,'reservation',x.remember===true);
  }catch{return fail('예약 조회 인증을 완료하지 못했습니다.',503)}
 }

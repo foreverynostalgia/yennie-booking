@@ -19,3 +19,18 @@ export async function decryptStudentPin(value:string,studentId:string){
  const raw=await crypto.subtle.decrypt({name:'AES-GCM',iv:unbase64(iv),additionalData:encoder.encode(studentId)},await key(),unbase64(cipher));
  return new TextDecoder().decode(raw);
 }
+
+// After a successful PIN login the server briefly knows the plaintext PIN.
+// If the stored admin-viewable copy is missing or was encrypted with a
+// previous server key (e.g. after moving hosts), re-encrypt it with the
+// current key so "PIN 보기" works again. Best effort: never blocks login.
+export async function refreshStudentPinCopy(student:{id:string;pin_encrypted:string|null},pin:unknown,database:D1Database){
+ try{
+  if(typeof pin!=='string')return false;
+  const normalized=pin.trim().toUpperCase();
+  if(student.pin_encrypted){try{if(await decryptStudentPin(student.pin_encrypted,student.id)===normalized)return false}catch{/* old key: re-encrypt below */}}
+  const fresh=await encryptStudentPin(normalized,student.id);
+  const result=await database.prepare('UPDATE students SET pin_encrypted=? WHERE id=? AND pin_encrypted IS ?').bind(fresh,student.id,student.pin_encrypted).run();
+  return (result.meta?.changes??0)>0;
+ }catch{return false}
+}
