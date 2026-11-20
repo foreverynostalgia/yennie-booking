@@ -6,7 +6,7 @@ type ScriptSetting={secret:string;url:string};
 const id='google_script';
 const randomSecret=()=>Array.from(crypto.getRandomValues(new Uint8Array(32)),x=>x.toString(16).padStart(2,'0')).join('');
 export function validScriptUrl(value:string){try{const url=new URL(value);return url.protocol==='https:'&&url.hostname==='script.google.com'&&/^\/macros\/s\/[A-Za-z0-9_-]{20,}\/exec$/.test(url.pathname)&&!url.search&&!url.hash}catch{return false}}
-async function read(){const row=await db().prepare('SELECT webhook_encrypted FROM calendar_settings WHERE id=?').bind(id).first<{webhook_encrypted:string}>();return row?JSON.parse(await decryptSetting(row.webhook_encrypted)) as ScriptSetting:null}
+async function read(){const row=await db().prepare('SELECT webhook_encrypted FROM calendar_settings WHERE id=?').bind(id).first<{webhook_encrypted:string}>();if(!row)return null;try{return JSON.parse(await decryptSetting(row.webhook_encrypted)) as ScriptSetting}catch{return null/* stored with a previous server key: treat as not connected */}}
 async function write(value:ScriptSetting){await db().prepare('INSERT INTO calendar_settings(id,webhook_encrypted,updated_at) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET webhook_encrypted=excluded.webhook_encrypted,updated_at=excluded.updated_at').bind(id,await encryptSetting(JSON.stringify(value)),new Date().toISOString()).run()}
 export async function getScriptConnection(){const data=await read();return data?.url?data:null}
 export async function prepareScript(origin:string){let data=await read();if(!data){data={secret:randomSecret(),url:''};await write(data)}return scriptText(data.secret,origin)}
