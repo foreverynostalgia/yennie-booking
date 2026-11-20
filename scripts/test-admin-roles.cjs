@@ -55,13 +55,13 @@ function routeFiles(dir){return fs.readdirSync(dir,{withFileTypes:true}).flatMap
  // Read-only rendering contains filters and list, and no enrollment/import/PIN actions.
  const React=require(root+'/node_modules/react'),{renderToStaticMarkup}=require(root+'/node_modules/react-dom/server');stubs['@/hooks/use-live-refresh']={useLiveRefresh(){},announceBookingChange(){}};
  const component=load(root+'/app/admin/students-manager.tsx').default;
- const html=renderToStaticMarkup(React.createElement(component,{readOnly:true}));assert.ok(html.includes('등록 학생 목록'));assert.ok(!html.includes('학생 개별 등록'));assert.ok(!html.includes('type="file"'));assert.ok(!html.includes('CSV 양식 내려받기'));
+ const html=renderToStaticMarkup(React.createElement(component,{readOnly:true}));assert.ok(html.includes('등록 학생 목록'));assert.ok(!html.includes('학생 개별 등록'));assert.ok(!html.includes('type="file"'));assert.ok(!html.includes('CSV 양식 내려받기'));assert.ok(!html.includes('+ 학생 등록'));assert.ok(!html.includes('일괄 업로드'));
  // Dedicated viewer page only renders the two allowed features, with no owner menu.
  const viewerComponent=load(root+'/app/admin/viewer/viewer.tsx').default;
  const viewerHtml=renderToStaticMarkup(React.createElement(viewerComponent));
  assert.ok(viewerHtml.includes('캘린더 및 학생 관리 메뉴'));assert.ok(viewerHtml.includes('예약 캘린더'));assert.ok(viewerHtml.includes('학생 관리'));
  for(const label of ['전체 예약','승인 요청','수업 관리','예약 차단','예약 추가','알림 설정'])assert.ok(!viewerHtml.includes(label),label+' must not be in viewer markup');
- const managementHtml=renderToStaticMarkup(React.createElement(component));assert.ok(managementHtml.includes('학생 개별 등록'));assert.ok(managementHtml.includes('type="file"'));assert.ok(managementHtml.includes('CSV 양식 내려받기'));
+ const managementHtml=renderToStaticMarkup(React.createElement(component));assert.ok(managementHtml.includes('+ 학생 등록'),'full admin gets the register button');assert.ok(managementHtml.includes('일괄 업로드'),'full admin gets the upload button');assert.ok(!managementHtml.includes('type="file"'),'upload form stays closed until opened');
  const directory=load(root+'/app/admin/viewer/student-directory.tsx').default;
  const directoryHtml=renderToStaticMarkup(React.createElement(directory));assert.ok(directoryHtml.includes('학생 정보 조회'));assert.ok(!directoryHtml.includes('type="file"'));assert.ok(!directoryHtml.includes('학생 등록'));assert.ok(!directoryHtml.includes('PIN 재발급'));assert.ok(!directoryHtml.includes('PIN 확인'));
  // Server route guard redirects restricted tabs before any owner UI is returned.

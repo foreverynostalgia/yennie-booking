@@ -56,7 +56,7 @@
 
 .clinic-booking-helper{margin:0 0 14px!important;font-size:14px}
 
-.admin-booking-editor{background:#fff!important;max-width:620px!important;max-height:90dvh;overflow-y:auto;padding:26px!important}.admin-booking-editor .fields{gap:16px}.admin-booking-editor .date-grid button{min-height:40px}.admin-booking-editor .time-options{margin:0}.admin-booking-editor [data-slot="dialog-title"]{font-size:22px;line-height:1.4}.admin-booking-editor .calendar-head button{min-width:40px;min-height:40px}
+.admin-booking-editor{background:#fff!important;max-width:min(620px,calc(100vw - 24px))!important;width:100%;max-height:90dvh;overflow-y:auto;padding:26px!important}.admin-booking-editor .fields{gap:16px}.admin-booking-editor .date-grid button{min-height:40px}.admin-booking-editor .time-options{margin:0}.admin-booking-editor [data-slot="dialog-title"]{font-size:22px;line-height:1.4}.admin-booking-editor .calendar-head button{min-width:40px;min-height:40px}
 
 .add-reservation-pill{border-radius:999px!important;background:#247ab1!important;color:#fff!important;border:2px solid #247ab1!important;padding:0 22px!important;min-height:46px;font-size:15px!important;font-weight:750!important;box-shadow:0 4px 12px #247ab12b;white-space:nowrap}.add-reservation-pill:hover{background:#1b6594!important;border-color:#1b6594!important}.add-reservation-pill:focus-visible{outline:3px solid #8bc9f0;outline-offset:3px}.add-reservation-pill:disabled{opacity:.5}.admin-booking-editor textarea{width:100%;min-height:108px;padding:12px;border:1px solid #cbdde8;border-radius:8px;background:#fff;color:#203d59;font:inherit;resize:vertical}.admin-booking-editor textarea:focus{outline:2px solid #8bc9f0;outline-offset:2px}.admin-reservation-memo{margin:8px 0;padding:10px 12px;background:#f0f7fc;border-left:3px solid #8bc9f0;border-radius:6px;font-size:14px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere;color:#38556b}.admin-reservation-memo strong{display:block;margin-bottom:4px;font-size:13px}
 
@@ -282,3 +282,10 @@ body:has(.embedded-reservation) [data-slot="dialog-content"],body:has(.embedded-
 .hw-capture label:first-child{grid-column:1/-1;border:1px solid #8bc9f0;background:#edf7fd;font-weight:700}.hw-capture label:last-child{grid-column:auto}.hw-history{margin:18px 0;padding:16px;border:1px solid #dfe8ed;border-radius:12px;background:#f8fbfd}.hw-history summary{cursor:pointer;font-weight:700}.hw-history ol{list-style:none;padding:0;margin:12px 0}.hw-history li{padding:12px 0;border-top:1px solid #dfe8ed}.hw-history time{font-size:13px;color:#657a8a}.hw-card button,.hw-card a{border:1px solid #cbdfe9}
 
 .hw-attach{margin:18px 0 12px}.hw-card .hw-file-input{display:none}.hw-attach-button{width:100%;min-height:48px;border:1px solid #8bc9f0!important;background:#edf7fd!important;color:#285b76;font-weight:700;font-size:15px}.hw-attach small{margin-top:8px;text-align:center}
+.admin-student-dialog,.admin-block-dialog{background:#fff!important;max-width:min(620px,calc(100vw - 24px))!important;width:100%;max-height:90dvh;overflow-y:auto;padding:26px!important}
+.admin-student-dialog .fields,.admin-block-dialog .fields{gap:16px}
+.admin-student-dialog .student-upload{padding:0;border:0;background:transparent}
+.panel-heading .row-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.google-calendar-settings .setup-toggle{margin:4px 0 12px}
+
+@media(max-width:640px){.admin-booking-editor,.admin-student-dialog,.admin-block-dialog{padding:20px 16px!important}}
