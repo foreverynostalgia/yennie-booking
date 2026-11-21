@@ -44,7 +44,7 @@ async function call(url:string,method='GET',body?:unknown){
 function BookingIdentity({booking:b}:{booking:Booking}){
   return <div className="booking-identity"><strong>{b.name}{b.nickname&&<small className="booking-nickname"> · {b.nickname}</small>}</strong><span>{b.school} · {b.grade}</span><span className="booking-phone">{b.phone}</span></div>;
 }
-export default function Admin(){
+export default function Admin({embeddedInitial=false}:{embeddedInitial?:boolean}){
  const [googleCalendarId,setGoogleCalendarId]=useState('');
  const [bulkCourseId,setBulkCourseId]=useState('');
  const [scheduleMode,setScheduleMode]=useState<'weekly'|'once'>('weekly');
@@ -53,7 +53,8 @@ export default function Admin(){
  const draftSavedId=useRef('');
  const [courseScreen,setCourseScreen]=useState<'list'|'editor'>('list');
  const [courseSelection,setCourseSelection]=useState<Set<string>>(()=>new Set());
- const [embedded,setEmbedded]=useState(false);useEffect(()=>{setEmbedded(new URLSearchParams(location.search).get('embedded')==='1')},[]);
+ // Known on the server, so the embedded view never flashes this app's own login form.
+ const [embedded,setEmbedded]=useState(embeddedInitial);useEffect(()=>{setEmbedded(new URLSearchParams(location.search).get('embedded')==='1')},[]);
  useEffect(()=>{
   if(!embedded||window.parent===window)return;
   let parentWindow:Window;try{parentWindow=window.parent;void parentWindow.document}catch{return}
@@ -65,6 +66,8 @@ export default function Admin(){
   const [username,setUsername]=useState(''),[password,setPassword]=useState('');
   const authRevision=useRef(0);
   const [authorized,setAuthorized]=useState(false),[alimtalkConfigured,setAlimtalkConfigured]=useState(false);
+  // 'checking' until the first data load settles; avoids showing a login form while loading.
+  const [connection,setConnection]=useState<'checking'|'ready'|'failed'>('checking'),[connectionError,setConnectionError]=useState('');
   const [courses,setCourses]=useState<Course[]>([]),[bookings,setBookings]=useState<Booking[]>([]);
   const [message,setMessage]=useState(''),[busy,setBusy]=useState(false);
   const [edit,setEdit]=useState(''),[title,setTitle]=useState(''),[notice,setNotice]=useState(''),[calendarLabel,setCalendarLabel]=useState(''),[color,setColor]=useState<string>(courseColors[0]);
@@ -92,7 +95,15 @@ export default function Admin(){
     }
     setCourseSelection(previous=>new Set([...previous].filter(id=>d.courses.some((c:Course)=>c.id===id))));setRole('owner');setAuthorized(true);setCourses([...d.courses].sort(compareTitles));setBookings(d.bookings);setAlimtalkConfigured(!!d.alimtalkConfigured);
   }
-  useEffect(()=>{load().catch(()=>setAuthorized(false))},[]);
+  async function connect(){
+    setConnection('checking');setConnectionError('');
+    for(const wait of [0,1000,3000,6000]){
+      if(wait)await new Promise(r=>setTimeout(r,wait));
+      try{await load();setConnection('ready');return}catch(e){setConnectionError(e instanceof Error?e.message:'예약 정보를 불러오지 못했습니다.')}
+    }
+    setAuthorized(false);setConnection('failed');
+  }
+  useEffect(()=>{connect()},[]);
   useEffect(()=>{if(!edit&&!copiedCourse&&!title)setColor(courseColors[courses.length%courseColors.length])},[courses.length,edit,copiedCourse,title]);
   useLiveRefresh(load,authorized&&!busy);
   useEffect(()=>{if(!authorized||role!=='owner')return;let stopped=false,running=false;async function retryCalendar(){if(stopped||running||document.visibilityState==='hidden')return;running=true;try{const state=await call('/api/admin/google-calendar');if(state.configured){for(let i=0;i<100&&!stopped;i++){const result=await call('/api/admin/google-calendar','POST',{});if(result.failed||!result.hasMore)break;}}}catch{/* The connection panel retains the concrete server error for inspection. */}finally{running=false}}retryCalendar();const timer=setInterval(retryCalendar,60000);return()=>{stopped=true;clearInterval(timer)}},[authorized,role]);
@@ -142,7 +153,7 @@ export default function Admin(){
   });
   return <main className={`shell admin-shell ${embedded?'embedded-reservation':''}`}>
     <header className="top" style={embedded?{display:'none'}:undefined}><div className="logo"><img className="logo-mark" src="/yennie-icon.png?v=1" alt="YENNIE SENSE" width={44} height={44}/><div><strong>YENNIE SENSE</strong><small>예약 관리자</small></div></div><a className="quiet-link" href="/">학생 페이지</a></header>
-    {!authorized||role!=='owner'?<section className="panel login"><p className="eyebrow">ADMIN</p><h1>관리자 로그인</h1><label>관리자 아이디<Input value={username} onChange={e=>setUsername(e.target.value)} autoComplete="username"/></label><label>관리자 비밀번호<Input type="password" value={password} onChange={e=>setPassword(e.target.value)} autoComplete="current-password" onKeyDown={e=>e.key==='Enter'&&signIn()}/></label><Button className="main-button" disabled={busy} onClick={signIn}>로그인</Button>{message&&<p className="notice error" role="alert">{message}</p>}</section>:<>
+    {(!authorized||role!=='owner')&&(connection==='checking'||embedded)?<section className="panel login connecting" aria-live="polite"><p className="eyebrow">RESERVATIONS</p><h1>{connection==='checking'?'예약 시스템 불러오는 중':'예약 시스템에 연결하지 못했습니다'}</h1><p className="helper">{connection==='checking'?'예니센스 관리자 계정으로 자동 연결합니다. 별도 로그인은 필요 없습니다.':'잠시 후 다시 연결해 주세요. 별도 로그인은 필요 없습니다.'}</p>{connection==='failed'&&<>{connectionError&&<p className="notice error" role="alert">{connectionError}</p>}<Button className="main-button" onClick={()=>connect()}>다시 연결</Button></>}</section>:!authorized||role!=='owner'?<section className="panel login"><p className="eyebrow">ADMIN</p><h1>관리자 로그인</h1><label>관리자 아이디<Input value={username} onChange={e=>setUsername(e.target.value)} autoComplete="username"/></label><label>관리자 비밀번호<Input type="password" value={password} onChange={e=>setPassword(e.target.value)} autoComplete="current-password" onKeyDown={e=>e.key==='Enter'&&signIn()}/></label><Button className="main-button" disabled={busy} onClick={signIn}>로그인</Button>{message&&<p className="notice error" role="alert">{message}</p>}</section>:<>
       <section className="admin-heading"><div><p className="eyebrow">옌쌤 과학 · 관리자</p><h1>예약 관리</h1><p>{readOnly?'캘린더 조회와 학생 관리 권한이 있는 계정입니다.':'예약과 취소 요청을 한곳에서 확인하세요.'}</p></div><Button style={embedded?{display:'none'}:undefined} variant="outline" onClick={()=>run(async()=>{authRevision.current++;await call('/api/admin/logout','POST');setAuthorized(false);setRole(null);setCourses([]);setBookings([]);setPassword('')})}>로그아웃</Button></section>
       {!readOnly&&<div className="admin-overview action-overview" aria-label="오늘 할 일"><button type="button" className={`overview-card${pending.length?' attention':''}`} onClick={()=>setView('requests')}><span>승인 대기</span><strong>{pending.length}<small>건</small></strong><em>{pending.length?'학생 취소·변경 요청 확인':'대기 중인 요청 없음'}</em></button><button type="button" className={`overview-card${needsAttendance.length?' attention':''}`} onClick={()=>setView('attendance')}><span>출결 입력 대기</span><strong>{needsAttendance.length}<small>건</small></strong><em>{needsAttendance.length?`가장 오래된 수업 · ${needsAttendance.at(-1)!.date}`:'끝난 수업 출결 모두 입력됨'}</em></button><button type="button" className="overview-card" onClick={()=>setView('calendar')}><span>오늘 예약</span><strong>{todays.length}<small>건</small></strong><em>{nextToday?`다음 · ${nextToday.start} ${nextToday.name}`:todays.length?'오늘 수업 모두 종료':'오늘 예약 없음'}</em></button><button type="button" className={`overview-card${calendarWaiting.length?' attention':''}`} onClick={()=>setView('settings')}><span>캘린더 반영</span><strong>{calendarWaiting.length}<small>건 대기</small></strong><em>{calendarWaiting.length?'5분마다 자동 재전송 · 계속 남으면 설정 확인':'예정 예약 모두 반영됨'}</em></button></div>}
       {readOnly?<nav className="tabs admin-tabs" aria-label="조회 메뉴"><button className={view==='calendar'?'active':''} onClick={()=>setView('calendar')}>예약 캘린더</button><button className={view==='students'?'active':''} onClick={()=>setView('students')}>학생 관리 · 조회 전용</button></nav>:<nav className="tabs admin-tabs" aria-label="관리 메뉴"><button className={view==='requests'?'active':''} onClick={()=>setView('requests')}>승인 요청 <b>{pending.length}</b></button><button className={view==='attendance'?'active':''} onClick={()=>setView('attendance')}>출결 입력 <b>{needsAttendance.length}</b></button><button className={view==='bookings'?'active':''} onClick={()=>setView('bookings')}>전체 예약</button><button className={view==='past'?'active':''} onClick={()=>setView('past')}>지난 예약</button><button className={view==='cancelled'?'active':''} onClick={()=>setView('cancelled')}>취소 완료</button><button className={view==='calendar'?'active':''} onClick={()=>setView('calendar')}>예약 캘린더</button><button className={view==='courses'?'active':''} onClick={()=>{setView('courses');setCourseScreen('list')}}>수업 관리</button><button className={view==='students'?'active':''} onClick={()=>setView('students')}>학생 관리</button><button className={view==='blocks'?'active':''} onClick={()=>setView('blocks')}>예약 차단</button><button className={view==='settings'?'active':''} onClick={()=>setView('settings')}>설정</button></nav>}

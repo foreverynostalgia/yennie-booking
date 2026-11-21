@@ -120,6 +120,8 @@ config.preview_urls = false;
 config.d1_databases = [target.d1];
 config.r2_buckets = [target.r2];
 config.observability = {enabled: true};
+// Non-secret: where owners sign in (the manager embeds the booking admin).
+config.vars = {...(config.vars || {}), MANAGER_URL: 'https://yennie-manager.yenniesense.workers.dev'};
 config.triggers = {crons: [target.calendarRetryCron]};
 await writeFile(file, JSON.stringify(config, null, 2));
 console.log(`wrangler.json -> ${target.name} (D1 ${target.d1.database_name}, R2 ${target.r2.bucket_name}, ${Object.keys(assets).length} embedded static files)`);
