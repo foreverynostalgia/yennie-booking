@@ -289,3 +289,11 @@ body:has(.embedded-reservation) [data-slot="dialog-content"],body:has(.embedded-
 .google-calendar-settings .setup-toggle{margin:4px 0 12px}
 
 @media(max-width:640px){.admin-booking-editor,.admin-student-dialog,.admin-block-dialog{padding:20px 16px!important}}
+/* Action-oriented overview cards (buttons that open the matching list). */
+.admin-overview.action-overview{grid-template-columns:repeat(4,minmax(0,1fr))}
+.action-overview .overview-card{font:inherit;text-align:left;cursor:pointer;color:inherit;display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:8px;border-radius:16px;transition:border-color .15s,box-shadow .15s,transform .15s}
+.action-overview .overview-card:hover,.action-overview .overview-card:focus-visible{border-color:#8bc9f0;box-shadow:0 8px 22px rgba(27,88,123,.12);transform:translateY(-1px)}
+.action-overview .overview-card em{font-style:normal;font-size:12px;color:#5f7585;line-height:1.4}
+.action-overview .overview-card.attention strong{color:#c0572e}
+.action-overview .overview-card.attention{background:#fff8f3;border-color:#f3c9b0}
+@media(max-width:900px){.admin-overview.action-overview{grid-template-columns:repeat(2,minmax(0,1fr))}}
