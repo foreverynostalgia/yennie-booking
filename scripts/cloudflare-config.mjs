@@ -13,6 +13,9 @@ import {fileURLToPath} from 'node:url';
 
 const target = {
   name: 'yennie-booking',
+  origin: 'https://yennie-booking.yenniesense.workers.dev',
+  // Offset from the Apps Script 5-minute trigger is not controllable, so retry often.
+  calendarRetryCron: '*/5 * * * *',
   d1: {binding: 'DB', database_name: 'yennie-booking', database_id: '06f35184-ab06-4f20-850f-023f16a2b4f9'},
   r2: {binding: 'LEARNING_FILES', bucket_name: 'yennie-booking-files'},
 };
@@ -65,9 +68,38 @@ function serve(request) {
   return new Response(request.method === 'HEAD' ? null : body(p), {headers});
 }
 const ASSETS = {fetch: async (request) => serve(request instanceof Request ? request : new Request(request)) || new Response('Not Found', {status: 404})};
+// Google Calendar auto-retry. The Apps Script holds a script-wide lock while its
+// own 5-minute change scan runs, so a booking sent at that moment fails with
+// "Lock timeout". Every few minutes, re-send bookings that still need syncing
+// (same rule as the admin "기존 예약 전송 · 실패 건 재시도" button). Nothing is sent
+// to Google when nothing is pending.
+const ORIGIN = ${JSON.stringify(target.origin)};
+const NEEDS_SYNC = "SELECT (SELECT count(*) FROM calendar_settings WHERE id='google_script') AS script, (SELECT count(*) FROM calendar_settings WHERE id='google_course_lifecycle_error') AS lifecycle, (SELECT count(*) FROM bookings WHERE (status!='cancelled' AND (date>=? OR calendar_synced_at IS NOT NULL OR attendance_updated_at IS NOT NULL) AND calendar_sync_status!='synced') OR (status='cancelled' AND calendar_synced_at IS NOT NULL AND calendar_sync_status!='synced')) AS pending";
+async function retryCalendar(env, ctx) {
+  if (!env.DB || String(env.MANAGER_SERVICE_KEY || '').length < 40) return;
+  const today = new Intl.DateTimeFormat('en-CA', {timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit'}).format(new Date());
+  const need = await env.DB.prepare(NEEDS_SYNC).bind(today).first();
+  if (!need?.script || (!need.pending && !need.lifecycle)) return;
+  const call = (path, init) => app.fetch(new Request(ORIGIN + path, init), {...env, ASSETS}, ctx);
+  const session = await call('/api/admin/manager-session', {method: 'POST', headers: {Authorization: 'Bearer ' + env.MANAGER_SERVICE_KEY, Origin: ORIGIN}});
+  const token = session.ok ? (await session.json()).token : '';
+  if (!token) { console.warn(JSON.stringify({event: 'calendar-retry', error: 'session ' + session.status})); return; }
+  let processed = 0, failed = 0, last = null;
+  for (let i = 0; i < 25; i++) {
+    const res = await call('/api/admin/google-calendar', {method: 'POST', headers: {'Content-Type': 'application/json', Origin: ORIGIN, Cookie: 'admin_session=' + token}, body: '{}'});
+    last = await res.json().catch(() => null);
+    if (!res.ok || !last) break;
+    processed += last.processed || 0; failed += last.failed || 0;
+    if (!last.hasMore || last.failed) break;
+  }
+  console.log(JSON.stringify({event: 'calendar-retry', pending: need.pending, lifecycle: need.lifecycle, processed, failed, last}));
+}
 export default {
   async fetch(request, env, ctx) {
     return serve(request) || app.fetch(request, {...env, ASSETS}, ctx);
+  },
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(retryCalendar(env, ctx));
   },
 };
 `);
@@ -83,5 +115,6 @@ config.preview_urls = false;
 config.d1_databases = [target.d1];
 config.r2_buckets = [target.r2];
 config.observability = {enabled: true};
+config.triggers = {crons: [target.calendarRetryCron]};
 await writeFile(file, JSON.stringify(config, null, 2));
 console.log(`wrangler.json -> ${target.name} (D1 ${target.d1.database_name}, R2 ${target.r2.bucket_name}, ${Object.keys(assets).length} embedded static files)`);
