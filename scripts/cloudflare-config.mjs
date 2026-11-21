@@ -83,7 +83,7 @@ async function retryCalendar(env, ctx) {
   const call = (path, init) => app.fetch(new Request(ORIGIN + path, init), {...env, ASSETS}, ctx);
   const session = await call('/api/admin/manager-session', {method: 'POST', headers: {Authorization: 'Bearer ' + env.MANAGER_SERVICE_KEY, Origin: ORIGIN}});
   const token = session.ok ? (await session.json()).token : '';
-  if (!token) { console.warn(JSON.stringify({event: 'calendar-retry', error: 'session ' + session.status})); return; }
+  if (!token) { const status = {at: new Date().toISOString(), error: 'session ' + session.status}; console.warn(JSON.stringify({event: 'calendar-retry', ...status})); await recordRetry(env, status); return; }
   let processed = 0, failed = 0, last = null;
   for (let i = 0; i < 25; i++) {
     const res = await call('/api/admin/google-calendar', {method: 'POST', headers: {'Content-Type': 'application/json', Origin: ORIGIN, Cookie: 'admin_session=' + token}, body: '{}'});
@@ -92,14 +92,19 @@ async function retryCalendar(env, ctx) {
     processed += last.processed || 0; failed += last.failed || 0;
     if (!last.hasMore || last.failed) break;
   }
-  console.log(JSON.stringify({event: 'calendar-retry', pending: need.pending, lifecycle: need.lifecycle, processed, failed, last}));
+  const status = {at: new Date().toISOString(), pending: need.pending, lifecycle: need.lifecycle, processed, failed, last};
+  console.log(JSON.stringify({event: 'calendar-retry', ...status}));
+  await recordRetry(env, status);
+}
+async function recordRetry(env, status) {
+  try { await env.DB.prepare("INSERT INTO calendar_settings(id,webhook_encrypted,updated_at) VALUES('calendar_retry_status',?,?) ON CONFLICT(id) DO UPDATE SET webhook_encrypted=excluded.webhook_encrypted,updated_at=excluded.updated_at").bind(JSON.stringify(status).slice(0, 1000), status.at).run(); } catch {}
 }
 export default {
   async fetch(request, env, ctx) {
     return serve(request) || app.fetch(request, {...env, ASSETS}, ctx);
   },
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(retryCalendar(env, ctx));
+    ctx.waitUntil(retryCalendar(env, ctx).catch(error => recordRetry(env, {at: new Date().toISOString(), error: String(error && error.stack || error).slice(0, 600)})));
   },
 };
 `);
