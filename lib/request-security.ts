@@ -22,7 +22,7 @@ export async function guardRequest(request:Request,database:D1Database|undefined
   const origin=request.headers.get('origin'),site=request.headers.get('sec-fetch-site');
   if(site==='cross-site'||(origin!==null&&origin!==new URL(request.url).origin))return reject('요청을 확인할 수 없습니다.',403);
   const length=Number(request.headers.get('content-length'));
-  if(Number.isFinite(length)&&length>(path==='/api/student/homework/file'&&request.method==='PUT'?30*1024*1024:(path==='/api/admin/learning/paper'||path==='/api/admin/learning/ocr'&&request.method==='PUT')?8*1024*1024:512*1024))return reject('요청 크기가 너무 큽니다.',413);
+  if(Number.isFinite(length)&&length>(path==='/api/student/homework/file'&&request.method==='PUT'?30*1024*1024:path==='/api/admin/learning/image'&&request.method==='PUT'?5*1024*1024:(path==='/api/admin/learning/paper'||path==='/api/admin/learning/ocr'&&request.method==='PUT')?8*1024*1024:512*1024))return reject('요청 크기가 너무 큽니다.',413);
  }
  // D1 counters are shared across isolates and survive deployments. Reuse the
  // existing expiry-based counter table; only hashed IP keys are stored.
