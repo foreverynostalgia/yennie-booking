@@ -81,8 +81,8 @@ async function retryCalendar(env, ctx) {
   const need = await env.DB.prepare(NEEDS_SYNC).bind(today).first();
   if (!need?.script || (!need.pending && !need.lifecycle)) return;
   const call = (path, init) => app.fetch(new Request(ORIGIN + path, init), {...env, ASSETS}, ctx);
-  const session = await call('/api/admin/manager-session', {method: 'POST', headers: {Authorization: 'Bearer ' + env.MANAGER_SERVICE_KEY, Origin: ORIGIN}});
-  const token = session.ok ? (await session.json()).token : '';
+  const {token, status: sessionStatus} = await adminSession(env, ctx);
+  const session = {status: sessionStatus};
   if (!token) { const status = {at: new Date().toISOString(), error: 'session ' + session.status}; console.warn(JSON.stringify({event: 'calendar-retry', ...status})); await recordRetry(env, status); return; }
   let processed = 0, failed = 0, last = null;
   for (let i = 0; i < 25; i++) {
@@ -96,6 +96,25 @@ async function retryCalendar(env, ctx) {
   console.log(JSON.stringify({event: 'calendar-retry', ...status}));
   await recordRetry(env, status);
 }
+async function adminSession(env, ctx) {
+  const res = await app.fetch(new Request(ORIGIN + '/api/admin/manager-session', {method: 'POST', headers: {Authorization: 'Bearer ' + env.MANAGER_SERVICE_KEY, Origin: ORIGIN}}), {...env, ASSETS}, ctx);
+  return {status: res.status, token: res.ok ? (await res.json()).token : ''};
+}
+// OCR results are fetched when someone checks the job; also check in the
+// background so uploads finish even if the page was closed.
+async function pollOcrJobs(env, ctx) {
+  if (!env.DB || String(env.MANAGER_SERVICE_KEY || '').length < 40) return;
+  const since = new Date(Date.now() - 48 * 3600 * 1000).toISOString();
+  const {results} = await env.DB.prepare("SELECT id FROM learning_ocr_jobs WHERE status='processing' AND request_id IS NOT NULL AND created_at>=? ORDER BY created_at LIMIT 5").bind(since).all();
+  if (!results.length) return;
+  const {token} = await adminSession(env, ctx);
+  if (!token) return;
+  for (const job of results) {
+    const res = await app.fetch(new Request(ORIGIN + '/api/admin/learning/ocr?job=' + encodeURIComponent(job.id), {headers: {Cookie: 'admin_session=' + token}}), {...env, ASSETS}, ctx);
+    const out = await res.json().catch(() => null);
+    console.log(JSON.stringify({event: 'ocr-poll', job: job.id, status: res.status, result: out && (out.status || out.error)}));
+  }
+}
 async function recordRetry(env, status) {
   try { await env.DB.prepare("INSERT INTO calendar_settings(id,webhook_encrypted,updated_at) VALUES('calendar_retry_status',?,?) ON CONFLICT(id) DO UPDATE SET webhook_encrypted=excluded.webhook_encrypted,updated_at=excluded.updated_at").bind(JSON.stringify(status).slice(0, 1000), status.at).run(); } catch {}
 }
@@ -105,6 +124,7 @@ export default {
   },
   async scheduled(event, env, ctx) {
     ctx.waitUntil(retryCalendar(env, ctx).catch(error => recordRetry(env, {at: new Date().toISOString(), error: String(error && error.stack || error).slice(0, 600)})));
+    ctx.waitUntil(pollOcrJobs(env, ctx).catch(error => console.warn(JSON.stringify({event: 'ocr-poll', error: String(error).slice(0, 300)}))));
   },
 };
 `);
