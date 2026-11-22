@@ -44,6 +44,16 @@ const PNG=new Uint8Array([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a,1,2,3]);
  const row=sql.prepare('SELECT * FROM learning_exams WHERE id=?').get(paperId);assert.equal(row.course_id,'paper-library');assert.equal(row.student_ids,'[]');assert.equal(row.crop_margin,12);assert.equal(row.published,0);
  await expect(await post({action:'paper-save',id:paperId,title:'',questions:qs}),400);
  await expect(await post({action:'paper-save',id:'x',title:'t',questions:qs}),400);
+ // saving a paper made from a recognised file removes that OCR job (and its files)
+ const job=(id,src)=>{sql.prepare("INSERT INTO learning_ocr_jobs(id,filename,mime,source_key,request_id,status,draft,error,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)").run(id,'a.pdf','application/pdf',src,'r','ready','{}',null,'t','t');files.set(src,{bytes:new Uint8Array([1])});files.set('ocr-results/'+id+'/1.json',{bytes:new Uint8Array([1])})};
+ const j1='33333333-3333-4333-8333-333333333333',j2='44444444-4444-4444-8444-444444444444';job(j1,'ocr-sources/'+j1+'.pdf');job(j2,'ocr-sources/'+j2+'.pdf');
+ sql.prepare("INSERT INTO learning_exams(id,course_id,title,questions,student_ids,paper_key,published,created_at) VALUES('old-exam','paper-library','옛 시험','[]','[]',?,0,'t')").run('ocr-sources/'+j2+'.pdf');
+ const p2='55555555-5555-4555-8555-555555555555',p3='66666666-6666-4666-8666-666666666666';
+ await expect(await post({action:'paper-save',id:p2,title:'인식 문제지',questions:[qs[1]],ocrJobId:j1}),200);
+ assert.equal(sql.prepare('SELECT count(*) n FROM learning_ocr_jobs WHERE id=?').get(j1).n,0,'job removed from OCR list');assert.ok(!files.has('ocr-sources/'+j1+'.pdf')&&!files.has('ocr-results/'+j1+'/1.json'),'job files removed');
+ await expect(await post({action:'paper-save',id:p3,title:'인식 문제지2',questions:[qs[1]],ocrJobId:j2}),200);
+ assert.equal(sql.prepare('SELECT count(*) n FROM learning_ocr_jobs WHERE id=?').get(j2).n,0);assert.ok(files.has('ocr-sources/'+j2+'.pdf'),'original kept while an older exam uses it');assert.ok(!files.has('ocr-results/'+j2+'/1.json'));
+ sql.prepare("DELETE FROM learning_exams WHERE id IN ('old-exam',?,?)").run(p2,p3);
  // library course never appears in course lists
  assert.equal(sql.prepare("SELECT count(*) n FROM courses WHERE active>=0 AND id='paper-library'").get().n,0);
  // update: replacing an image deletes the old object
