@@ -12,6 +12,8 @@ export async function POST(req:NextRequest){if(!await protectedMutation(req))ret
    await db().prepare('UPDATE learning_exams SET title=?,questions=?,crop_margin=?,updated_at=? WHERE id=?').bind(title,JSON.stringify(questions),margin,now,id).run();
    const keep=new Set(questions.flatMap(q=>[q.imageKey,q.explanationImageKey].filter(Boolean)));const stale:string[]=old.flatMap(q=>[q.imageKey,q.explanationImageKey]).filter((k:unknown):k is string=>typeof k==='string'&&!!k&&!keep.has(k));if(stale.length)await bucket().delete(stale).catch(()=>{});
   }else await db().prepare("INSERT INTO learning_exams(id,course_id,title,questions,student_ids,paper_key,published,created_at,updated_at,crop_margin) VALUES(?,'paper-library',?,?,'[]',NULL,0,?,?,?)").bind(id,title,JSON.stringify(questions),now,now,margin).run();
+  {// Images uploaded while editing (re-crops, replaced images) that the saved paper no longer uses.
+   const keep=new Set(questions.flatMap(q=>[q.imageKey,q.explanationImageKey].filter(Boolean)));const listed=await bucket().list({prefix:'exam-images/'+id+'/',limit:1000}).catch(()=>null);const unused=(listed?.objects||[]).map(o=>o.key).filter(k=>!keep.has(k));if(unused.length)await bucket().delete(unused).catch(()=>{})}
   return json({id})}
  // Delete question papers that have no submitted answers (their images and PDF too).
  if(x.action==='paper-delete'){const ids:string[]=Array.isArray(x.ids)?[...new Set<string>(x.ids.map((v:unknown)=>String(v)))].slice(0,100):[];if(!ids.length||ids.some(id=>!/^[a-zA-Z0-9-]{1,64}$/.test(id)))return fail('삭제할 문제지를 선택해 주세요.');const deleted:string[]=[],kept:string[]=[];
