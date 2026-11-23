@@ -232,6 +232,13 @@
       "when": 1795800000000,
       "tag": "0032_question_papers",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "6",
+      "when": 1795900000000,
+      "tag": "0033_class_sessions",
+      "breakpoints": true
     }
   ]
 }

@@ -298,3 +298,6 @@ body:has(.embedded-reservation) [data-slot="dialog-content"],body:has(.embedded-
 .action-overview .overview-card.attention{background:#fff8f3;border-color:#f3c9b0}
 @media(max-width:900px){.admin-overview.action-overview{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .panel.login.connecting{text-align:center}.panel.login.connecting .main-button{margin:12px auto 0}
+.report-tabs{display:flex;gap:6px;border-bottom:1px solid #dbe8ee;margin-bottom:12px}.report-tabs button{background:none;border:0;border-bottom:2px solid transparent;border-radius:0;padding:10px 14px;color:#5f7585;font-weight:600}.report-tabs button.selected{color:#213e51;border-bottom-color:#213e51}
+.report-meta{color:#5f7585;font-size:14px;margin:0 0 10px}.report-items{display:grid;gap:10px;margin:0}.report-item{border:1px solid #dbe8ee;border-radius:12px;padding:12px 14px;background:#fff}.report-item dt{font-size:13px;color:#5f7585;margin-bottom:4px}.report-item dd{margin:0;white-space:pre-wrap;font-size:16px}.report-item.score b{font-size:22px}
+.report-materials ul{padding-left:0;list-style:none;display:grid;gap:8px}.report-materials a{display:block;padding:12px 14px;border:1px solid #dbe8ee;border-radius:12px;background:#fff;text-decoration:none}
