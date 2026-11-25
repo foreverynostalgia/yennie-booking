@@ -346,3 +346,5 @@ html:has(dialog[open]){overflow:hidden}
 .blocked-dates-field{display:grid;gap:8px;margin:8px 0 4px}.blocked-dates-label{font-weight:700;font-size:14px;color:#294451}.blocked-dates-label small{font-weight:400;color:#6a8090;margin-left:4px}
 .blocked-dates-add{display:flex;gap:8px;align-items:center}.blocked-dates-add input{max-width:220px}
 .blocked-dates-chips{display:flex;flex-wrap:wrap;gap:6px}.blocked-date-chip{display:inline-flex;align-items:center;gap:2px;padding:3px 4px 3px 10px;border-radius:999px;background:#fff4ec;border:1px solid #f3d2bd;color:#9a4a1c;font-size:13px}.blocked-date-chip button{border:0;background:none;cursor:pointer;color:inherit;font:inherit;padding:0 6px}
+/* 스크롤바 (강제): no other rule may bring back the track or arrow buttons */
+@supports selector(::-webkit-scrollbar){html,*:not(.hide-scrollbar){scrollbar-width:auto!important;scrollbar-color:auto!important}::-webkit-scrollbar-button{display:none!important;width:0!important;height:0!important}::-webkit-scrollbar-track{background:transparent!important;box-shadow:none!important}}
