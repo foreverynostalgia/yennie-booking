@@ -301,3 +301,48 @@ body:has(.embedded-reservation) [data-slot="dialog-content"],body:has(.embedded-
 .report-tabs{display:flex;gap:6px;border-bottom:1px solid #dbe8ee;margin-bottom:12px}.report-tabs button{background:none;border:0;border-bottom:2px solid transparent;border-radius:0;padding:10px 14px;color:#5f7585;font-weight:600}.report-tabs button.selected{color:#213e51;border-bottom-color:#213e51}
 .report-meta{color:#5f7585;font-size:14px;margin:0 0 10px}.report-items{display:grid;gap:10px;margin:0}.report-item{border:1px solid #dbe8ee;border-radius:12px;padding:12px 14px;background:#fff}.report-item dt{font-size:13px;color:#5f7585;margin-bottom:4px}.report-item dd{margin:0;white-space:pre-wrap;font-size:16px}.report-item.score b{font-size:22px}
 .report-materials ul{padding-left:0;list-style:none;display:grid;gap:8px}.report-materials a{display:block;padding:12px 14px;border:1px solid #dbe8ee;border-radius:12px;background:#fff;text-decoration:none}
+
+/* ---- 예약 관리 inside the YENNIE SENSE workspace: the workspace's own rules ----
+   Glass surfaces, pill tabs/buttons, Noto Sans KR and the ink palette. The workspace
+   passes the viewer's 유리 ↔ 틴티드 setting as --glass-scale / --glass-rgb on <html>. */
+html:has(main.embedded-reservation),html:has(main.embedded-reservation) body{background:transparent!important}
+main.embedded-reservation{--ink:#213e51;--ink-2:#3F4855;--line-2:#DCE5EC;--muted:#6a8090;--g:min(.97,calc(var(--gf,.36)*var(--glass-scale,1)));font-family:'Noto Sans KR',system-ui,sans-serif;color:var(--ink);background:transparent!important;padding:0 2px 24px!important;max-width:none!important}
+main.embedded-reservation :is(button,input,select,textarea){font-family:inherit}
+main.embedded-reservation :is(.panel,.admin-panel,.overview-card,.course-admin-row,.student-admin-row,.booking-calendar,.admin-calendar-grid,.booking-schedule,.course-bulk,.reservation-blocks){--gf:.36;background-color:rgba(var(--glass-rgb,255,255,255),var(--g))!important;background-image:linear-gradient(155deg,rgba(255,255,255,calc(.3*var(--glass-sheen-scale,1))),rgba(255,255,255,0) 42%);border:1px solid rgba(255,255,255,.75)!important;border-radius:22px!important;box-shadow:0 2px 8px rgb(0 0 0/.06),0 8px 24px -6px rgb(0 0 0/.12)}
+main.embedded-reservation .panel{border-top:1px solid rgba(255,255,255,.75)!important;padding:22px 24px}
+main.embedded-reservation .overview-card{min-height:92px}main.embedded-reservation .overview-card.attention{--gf:.55;background-color:rgba(255,244,236,var(--g))!important;border-color:#f3d2bd!important}
+main.embedded-reservation .overview-card strong{color:var(--ink)}main.embedded-reservation .overview-card>span{color:var(--ink-2)}
+main.embedded-reservation :is(.eyebrow,.section-kicker){font-size:11px;letter-spacing:.14em;color:var(--muted);font-weight:600;text-transform:uppercase}
+main.embedded-reservation .panel h2,main.embedded-reservation .panel-heading h2{font-size:18px;font-weight:700;letter-spacing:-.01em}
+/* tabs → workspace pill tabs */
+main.embedded-reservation .tabs{gap:6px;border:0;margin:6px 0 16px;padding:4px;flex-wrap:wrap}
+main.embedded-reservation .tabs button{border:1px solid var(--line-2)!important;border-radius:999px;background:#fff;padding:8px 16px;font-size:14px;font-weight:600;color:var(--ink-2)}
+main.embedded-reservation .tabs button.active{background:var(--ink);border-color:var(--ink)!important;color:#fff}
+main.embedded-reservation .tabs button.active b{background:rgba(255,255,255,.22);color:#fff}
+/* buttons → pills (dark primary, white secondary) */
+main.embedded-reservation :is([data-slot=button],.main-button){border-radius:999px!important;font-weight:600;box-shadow:none}
+main.embedded-reservation :is([data-slot=button].bg-primary,.main-button){background:var(--ink)!important;color:#fff!important;border:1px solid var(--ink)!important}
+main.embedded-reservation [data-slot=button]:is(.bg-background,.border){background:#fff!important;color:var(--ink-2)!important;border:1px solid var(--line-2)!important}
+/* fields */
+main.embedded-reservation :is(input:not([type=checkbox]):not([type=radio]),select,textarea,[data-slot=input],[data-slot=select-trigger]){border-radius:12px!important;border:1px solid var(--line-2)!important;background:#fff!important;box-shadow:none!important;color:var(--ink)}
+main.embedded-reservation :is(.notice,.admin-empty,.empty){border-radius:14px;background:rgba(255,255,255,calc(.5*var(--glass-scale,1)))!important}
+/* dialogs opened from 예약 관리 */
+:is(.booking-cancel-dialog,.admin-student-dialog,[data-slot=dialog-content],[data-slot=alert-dialog-content]):where(html:has(main.embedded-reservation) *){background-color:rgba(var(--glass-rgb,249,252,255),min(.97,calc(.78*var(--glass-scale,1))))!important;backdrop-filter:blur(26px) saturate(180%);-webkit-backdrop-filter:blur(26px) saturate(180%);border:1px solid rgba(255,255,255,.8)!important;border-radius:24px!important}
+
+/* 스크롤바: no white track, only a thin gray thumb that stays inside rounded popups. */
+html{scrollbar-color:rgba(95,117,133,.42) transparent}
+*{scrollbar-width:thin}
+@supports selector(::-webkit-scrollbar){
+ html,*{scrollbar-color:auto;scrollbar-width:auto}
+ ::-webkit-scrollbar{width:10px;height:10px;background:transparent}
+ ::-webkit-scrollbar-track,::-webkit-scrollbar-corner{background:transparent}
+ ::-webkit-scrollbar-thumb{background-color:rgba(95,117,133,.36);border:3px solid transparent;background-clip:padding-box;border-radius:999px;min-height:40px}
+ ::-webkit-scrollbar-thumb:hover{background-color:rgba(95,117,133,.6)}
+ ::-webkit-scrollbar-button{display:none;width:0;height:0}
+ dialog::-webkit-scrollbar-track,[role=dialog]::-webkit-scrollbar-track{margin:24px 0}
+}
+dialog[open]{max-height:calc(100dvh - 32px);overflow:auto;overscroll-behavior:contain}
+html:has(dialog[open]){overflow:hidden}
+.blocked-dates-field{display:grid;gap:8px;margin:8px 0 4px}.blocked-dates-label{font-weight:700;font-size:14px;color:#294451}.blocked-dates-label small{font-weight:400;color:#6a8090;margin-left:4px}
+.blocked-dates-add{display:flex;gap:8px;align-items:center}.blocked-dates-add input{max-width:220px}
+.blocked-dates-chips{display:flex;flex-wrap:wrap;gap:6px}.blocked-date-chip{display:inline-flex;align-items:center;gap:2px;padding:3px 4px 3px 10px;border-radius:999px;background:#fff4ec;border:1px solid #f3d2bd;color:#9a4a1c;font-size:13px}.blocked-date-chip button{border:0;background:none;cursor:pointer;color:inherit;font:inherit;padding:0 6px}

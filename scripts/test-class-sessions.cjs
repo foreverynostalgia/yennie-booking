@@ -30,6 +30,14 @@ const {NextRequest,NextResponse}=require(root+'/node_modules/next/server');const
  // submit, then swapping/removing the paper is blocked
  const submit=await omr.POST(new NextRequest('https://test.local/api/student/learning',{method:'POST',headers:{origin:'https://test.local',cookie:await studentCookie('sa'),'Content-Type':'application/json'},body:JSON.stringify({examId:paperA,assignmentId:linkId,answers:{q1:'2'}})}));assert.equal(submit.status,200,await submit.clone().text());
  const att=sql.prepare('SELECT * FROM learning_attempts WHERE link_id=?').get(linkId);assert.equal(att.score,100);
+ // the student cannot submit again; another student's sheet stays separate
+ const again=await omr.POST(new NextRequest('https://test.local/api/student/learning',{method:'POST',headers:{origin:'https://test.local',cookie:await studentCookie('sa'),'Content-Type':'application/json'},body:JSON.stringify({examId:paperA,assignmentId:linkId,answers:{q1:'3'}})}));assert.equal(again.status,409);
+ const sbSubmit=await omr.POST(new NextRequest('https://test.local/api/student/learning',{method:'POST',headers:{origin:'https://test.local',cookie:await studentCookie('sb'),'Content-Type':'application/json'},body:JSON.stringify({examId:paperA,assignmentId:linkId,answers:{q1:'4'}})}));assert.equal(sbSubmit.status,200);
+ const rows=sql.prepare('SELECT student_id,answers,score FROM learning_attempts WHERE link_id=? ORDER BY student_id').all(linkId);assert.deepEqual(rows.map(r=>[r.student_id,JSON.parse(r.answers).q1,r.score]),[['sa','2',100],['sb','4',0]]);
+ // the teacher can correct an answer sheet: it is regraded
+ await expect(await post({action:'attempt-edit',attemptId:att.id,answers:{}}),400);
+ const edited=await expect(await post({action:'attempt-edit',attemptId:sql.prepare("SELECT id FROM learning_attempts WHERE link_id=? AND student_id='sb'").get(linkId).id,answers:{q1:'2'}}),200);assert.equal(edited.score,100);
+ assert.equal(sql.prepare("SELECT score FROM learning_attempts WHERE link_id=? AND student_id='sb'").get(linkId).score,100);assert.equal(sql.prepare("SELECT score FROM learning_attempts WHERE link_id=? AND student_id='sa'").get(linkId).score,100,'other sheet untouched');
  await expect(await post({...base,action:'session-exam',examId:paperB,studentIds:['sa','sb']}),409);
  await expect(await post({...base,action:'session-exam-remove'}),409);
  // a 회차 without answers can switch paper or be unlinked
@@ -53,5 +61,5 @@ const {NextRequest,NextResponse}=require(root+'/node_modules/next/server');const
  await expect(await post({...base,action:'session-report-unpublish'}),200);assert.equal((await expect(await asStudent('sa',reports,'/api/student/reports'),200)).reports.length,0);
  // the hidden course never shows up as a real course
  assert.equal(sql.prepare("SELECT active FROM courses WHERE id='class-sessions'").get().active,-1);
- console.log('Class session checks passed: roster-scoped exam links, label display, swap/remove guarded by answers, report cards per student, https-only materials, unpublish.');
+ console.log('Class session checks passed: one sheet per student (no resubmit), teacher answer correction with regrade, roster-scoped exam links, label display, swap/remove guarded by answers, report cards per student, https-only materials, unpublish.');
 })().catch(e=>{console.error(e);process.exit(1)});
